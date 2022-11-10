@@ -51,9 +51,9 @@ if (is_test) {
 
 } else {
         const options = { // letsencrypt로 받은 인증서 경로를 입력해 줍니다.
-                ca: fs.readFileSync("/etc/letsencrypt/live/weare-first.com/fullchain.pem"),
-                key: fs.readFileSync("/etc/letsencrypt/live/weare-first.com/privkey.pem"),
-                cert: fs.readFileSync("/etc/letsencrypt/live/weare-first.com/cert.pem")
+                ca: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/fullchain.pem"),
+                key: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/privkey.pem"),
+                cert: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/cert.pem")
         };
         https.createServer(options, app).listen(HTTPS_PORT, function () {
                 console.log("Server on " + HTTPS_PORT);
