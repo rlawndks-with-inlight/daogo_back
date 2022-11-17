@@ -51,7 +51,7 @@ const addAlarm = (req, res) => {
         db.query("INSERT INTO alarm_table (title, note, url, type, start_date, days, time) VALUES (?, ?, ?, ?, ?, ?, ?)", [title, note, url, type, start_date, days, time], async (err, result) => {
             if (err) {
                 console.log(err)
-                response(req, res, -200, "알람 추가 실패", [])
+                return response(req, res, -200, "알람 추가 실패", [])
             }
             else {
                 if (type == 0) {
@@ -61,10 +61,10 @@ const addAlarm = (req, res) => {
                 await db.query("UPDATE alarm_table SET sort=? WHERE pk=?", [result.insertId, result.insertId], (err, result) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "알람 추가 실패", [])
+                        return response(req, res, -200, "알람 추가 실패", [])
                     }
                     else {
-                        response(req, res, 200, "알람 추가 성공", [])
+                        return response(req, res, 200, "알람 추가 성공", [])
                     }
                 })
             }
@@ -105,16 +105,16 @@ const updateAlarm = (req, res) => {
         db.query("UPDATE alarm_table SET title=?, note=?, url=?, type=?, start_date=?, days=?, time=? WHERE pk=?", [title, note, url, type, start_date, days, time, pk], (err, result) => {
             if (err) {
                 console.log(err)
-                response(req, res, -200, "알람 수정 실패", [])
+                return response(req, res, -200, "알람 수정 실패", [])
             }
             else {
-                response(req, res, 200, "알람 수정 성공", [])
+                return response(req, res, 200, "알람 수정 성공", [])
             }
         })
 
     } catch (err) {
         console.log(err)
-        response(req, res, -200, "서버 에러 발생", [])
+        return response(req, res, -200, "서버 에러 발생", [])
     }
 }
 const onSignUp = async (req, res) => {
@@ -191,7 +191,7 @@ const onSignUp = async (req, res) => {
 
     } catch (err) {
         console.log(err)
-        response(req, res, -200, "서버 에러 발생", [])
+        return response(req, res, -200, "서버 에러 발생", [])
     }
 }
 const onLoginById = async (req, res) => {
@@ -233,7 +233,7 @@ const onLoginById = async (req, res) => {
                                         return response(req, res, -200, "서버 에러 발생", [])
                                     }
                                 })
-                                response(req, res, 200, result1[0].nickname + ' 님 환영합니다.', result1[0]);
+                                return response(req, res, 200, result1[0].nickname + ' 님 환영합니다.', result1[0]);
                                 let requestIp;
                                 try {
                                     requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '0.0.0.0'
@@ -337,13 +337,13 @@ const editMyInfo = (req, res) => {
 
             if (err) {
                 console.log(err)
-                response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
             }
 
             await db.query("SELECT * FROM user_table WHERE id=? AND pw=?", [id, hash], async (err, result) => {
                 if (err) {
                     console.log(err);
-                    response(req, res, -100, "서버 에러 발생", [])
+                    return response(req, res, -100, "서버 에러 발생", [])
                 } else {
                     if (result.length > 0) {
                         if (newPw) {
@@ -352,7 +352,7 @@ const editMyInfo = (req, res) => {
                                 let new_hash = decoded.toString('base64')
                                 if (err) {
                                     console.log(err)
-                                    response(req, res, -200, "새 비밀번호 암호화 도중 에러 발생", [])
+                                    return response(req, res, -200, "새 비밀번호 암호화 도중 에러 발생", [])
                                 }
                                 await db.query("UPDATE user_table SET pw=? WHERE id=?", [new_hash, id], (err, result) => {
                                     if (err) {
@@ -404,7 +404,7 @@ const editMyInfo = (req, res) => {
                             })
                         }
                     } else {
-                        response(req, res, -50, "비밀번호가 일치하지 않습니다.", [])
+                        return response(req, res, -50, "비밀번호가 일치하지 않습니다.", [])
                     }
                 }
             })
@@ -448,17 +448,17 @@ const kakaoCallBack = (req, res) => {
                 tmp = await axios.get(url, Header);
             } catch (e) {
                 console.log(e);
-                response(req, res, -200, "서버 에러 발생", [])
+                return response(req, res, -200, "서버 에러 발생", [])
             }
 
             try {
                 const { data } = tmp;
                 const { id, properties } = data;
-                response(req, res, 100, "success", { id, properties });
+                return response(req, res, 100, "success", { id, properties });
 
             } catch (e) {
                 console.log(e);
-                response(req, res, -100, "서버 에러 발생", [])
+                return response(req, res, -100, "서버 에러 발생", [])
             }
 
         }
@@ -466,7 +466,7 @@ const kakaoCallBack = (req, res) => {
 
     } catch (err) {
         console.log(err)
-        response(req, res, -200, "서버 에러 발생", [])
+        return response(req, res, -200, "서버 에러 발생", [])
     }
 }
 
@@ -590,7 +590,7 @@ const changePassword = (req, res) => {
 
             if (err) {
                 console.log(err)
-                response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
             }
 
             await db.query("UPDATE user_table SET pw=? WHERE id=?", [hash, id], (err, result) => {
@@ -719,7 +719,7 @@ const updateUser = async (req, res) => {
                 let hash = decoded.toString('base64')
                 if (err) {
                     console.log(err)
-                    response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                    return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                 } else {
                     await db.query("UPDATE user_table SET pw=? WHERE pk=?", [hash, pk], (err, result) => {
                         if (err) {
@@ -767,7 +767,7 @@ const addMaster = (req, res) => {
 
         db.query(sql, [id], (err, result) => {
             if (result.length > 0)
-                response(req, res, -200, "ID가 중복됩니다.", [])
+            return response(req, res, -200, "ID가 중복됩니다.", [])
             else {
                 crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
                     // bcrypt.hash(pw, salt, async (err, hash) => {
@@ -775,7 +775,7 @@ const addMaster = (req, res) => {
 
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                        return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                     }
 
                     sql = 'INSERT INTO user_table (id, pw, name, nickname, user_level, profile_img, channel_img) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -783,16 +783,16 @@ const addMaster = (req, res) => {
 
                         if (err) {
                             console.log(err)
-                            response(req, res, -200, "회원 추가 실패", [])
+                            return response(req, res, -200, "회원 추가 실패", [])
                         }
                         else {
                             await db.query("UPDATE user_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                                 if (err) {
                                     console.log(err)
-                                    response(req, res, -200, "회원 추가 실패", [])
+                                    return response(req, res, -200, "회원 추가 실패", [])
                                 }
                                 else {
-                                    response(req, res, 200, "회원 추가 성공", [])
+                                    return response(req, res, 200, "회원 추가 성공", [])
                                 }
                             })
                         }
@@ -818,7 +818,7 @@ const updateMaster = (req, res) => {
         let sql = "SELECT * FROM user_table WHERE id=? AND pk!=?"
         db.query(sql, [id, pk], async (err, result) => {
             if (result?.length > 0)
-                response(req, res, -200, "ID가 중복됩니다.", [])
+            return response(req, res, -200, "ID가 중복됩니다.", [])
             else {
                 let columns = " id=?, name=?, nickname=? ";
                 let zColumn = [id, name, nickname];
@@ -827,7 +827,7 @@ const updateMaster = (req, res) => {
                     let hash = decoded.toString('base64')
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                        return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                     } else {
                         if (pw) {
                             columns += ", pw =?"
@@ -876,7 +876,7 @@ const addChannel = (req, res) => {
 
         db.query(sql, [id], (err, result) => {
             if (result.length > 0)
-                response(req, res, -200, "ID가 중복됩니다.", [])
+            return response(req, res, -200, "ID가 중복됩니다.", [])
             else {
                 crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
                     // bcrypt.hash(pw, salt, async (err, hash) => {
@@ -884,7 +884,7 @@ const addChannel = (req, res) => {
 
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                        return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                     }
 
                     sql = 'INSERT INTO user_table (id, pw, name, nickname, user_level, channel_img) VALUES (?, ?, ?, ?, ?, ?)'
@@ -892,16 +892,16 @@ const addChannel = (req, res) => {
 
                         if (err) {
                             console.log(err)
-                            response(req, res, -200, "fail", [])
+                            return response(req, res, -200, "fail", [])
                         }
                         else {
                             await db.query("UPDATE user_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                                 if (err) {
                                     console.log(err)
-                                    response(req, res, -200, "fail", [])
+                                    return response(req, res, -200, "fail", [])
                                 }
                                 else {
-                                    response(req, res, 200, "success", [])
+                                    return response(req, res, 200, "success", [])
                                 }
                             })
                         }
@@ -931,10 +931,10 @@ const updateChannel = (req, res) => {
         db.query(`UPDATE user_table SET ${columns} WHERE pk=?`, zColumn, (err, result) => {
             if (err) {
                 console.log(err)
-                response(req, res, -200, "fail", [])
+                return response(req, res, -200, "fail", [])
             }
             else {
-                response(req, res, 200, "성공적으로 수정되었습니다.", [])
+                return response(req, res, 200, "성공적으로 수정되었습니다.", [])
             }
         })
 
@@ -1068,7 +1068,7 @@ const getVideoContent = (req, res) => {
             db.query("UPDATE video_table SET views=views+1 WHERE pk=?", [pk], (err, result_view) => {
                 if (err) {
                     console.log(err)
-                    response(req, res, -200, "서버 에러 발생", [])
+                    return response(req, res, -200, "서버 에러 발생", [])
                 } else {
                 }
             })
@@ -1120,10 +1120,10 @@ const getComments = (req, res) => {
         db.query(`SELECT comment_table.*, user_table.nickname, user_table.profile_img FROM comment_table LEFT JOIN user_table ON comment_table.user_pk = user_table.pk WHERE 1=1 ${columns} ORDER BY pk DESC`, zColumn, (err, result) => {
             if (err) {
                 console.log(err)
-                response(req, res, -200, "fail", [])
+                return response(req, res, -200, "fail", [])
             }
             else {
-                response(req, res, 200, "success", result)
+                return response(req, res, 200, "success", result)
             }
         })
     } catch (err) {
@@ -1137,10 +1137,10 @@ const addComment = (req, res) => {
         db.query("INSERT INTO comment_table (user_pk, user_nickname, item_pk, item_title, note, category_pk, parent_pk) VALUES (?, ?, ?, ?, ?, ?, ?)", [userPk, userNick, pk, title, note, category, parentPk], (err, result) => {
             if (err) {
                 console.log(err)
-                response(req, res, -200, "fail", [])
+                return response(req, res, -200, "fail", [])
             }
             else {
-                response(req, res, 200, "success", [])
+                return response(req, res, 200, "success", [])
             }
         })
     } catch (err) {
@@ -1187,10 +1187,10 @@ const addOneWord = (req, res) => {
                 await db.query("UPDATE oneword_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
 
@@ -1224,10 +1224,10 @@ const addOneEvent = (req, res) => {
                 await db.query("UPDATE oneevent_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
             }
@@ -1294,10 +1294,10 @@ const addItem = (req, res) => {
                 await db.query(`UPDATE ${table}_table SET sort=? WHERE pk=?`, [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
             }
@@ -1357,10 +1357,10 @@ const addIssueCategory = (req, res) => {
                 await db.query("UPDATE issue_category_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
             }
@@ -1411,10 +1411,10 @@ const addFeatureCategory = (req, res) => {
                 await db.query("UPDATE feature_category_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
             }
@@ -1469,7 +1469,7 @@ const getItem = (req, res) => {
             db.query(`UPDATE ${table}_table SET views=views+1 WHERE pk=?`, [pk], (err, result_view) => {
                 if (err) {
                     console.log(err)
-                    response(req, res, -200, "서버 에러 발생", [])
+                    return response(req, res, -200, "서버 에러 발생", [])
                 } else {
                 }
             })
@@ -1505,7 +1505,7 @@ const addVideo = (req, res) => {
                 await db.query("UPDATE video_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                 })
                 let relate_videos = JSON.parse(relate_video)
@@ -1588,10 +1588,10 @@ const addNotice = (req, res) => {
                 await db.query("UPDATE notice_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", [])
                     }
                     else {
-                        response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", [])
                     }
                 })
             }
