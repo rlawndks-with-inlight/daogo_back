@@ -119,7 +119,7 @@ const updateAlarm = (req, res) => {
 }
 const onSignUp = async (req, res) => {
     try {
-
+        const decode = checkLevel(req.cookies.token, 0)
         //logRequest(req)
         const id = req.body.id ?? "";
         const pw = req.body.pw ?? "";
@@ -130,6 +130,9 @@ const onSignUp = async (req, res) => {
         const type_num = req.body.type_num ?? 0;
         const profile_img = req.body.profile_img ?? "";
         //중복 체크 
+        if (decode.user_level < 40 && user_level > 0) {
+            return response(req, res, -100, "권한이 없습니다.", [])
+        }
         let sql = "SELECT * FROM user_table WHERE id=? OR nickname=? OR user_level=? "
 
         db.query(sql, [id, nickname, -10], (err, result) => {
@@ -160,7 +163,7 @@ const onSignUp = async (req, res) => {
 
                     if (err) {
                         console.log(err)
-                        response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
+                        return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                     }
 
                     sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, type, profile_img) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
@@ -168,16 +171,16 @@ const onSignUp = async (req, res) => {
 
                         if (err) {
                             console.log(err)
-                            response(req, res, -200, "회원 추가 실패", [])
+                            return response(req, res, -200, "회원 추가 실패", [])
                         }
                         else {
                             await db.query("UPDATE user_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                                 if (err) {
                                     console.log(err)
-                                    response(req, res, -200, "회원 추가 실패", [])
+                                    return response(req, res, -200, "회원 추가 실패", [])
                                 }
                                 else {
-                                    response(req, res, 200, "회원 추가 성공", [])
+                                    return response(req, res, 200, "회원 추가 성공", [])
                                 }
                             })
                         }
@@ -193,8 +196,12 @@ const onSignUp = async (req, res) => {
 }
 const onLoginById = async (req, res) => {
     try {
-        let { id, pw } = req.body;
-        db.query('SELECT * FROM user_table WHERE id=?', [id], async (err, result1) => {
+        let { id, pw, type } = req.body;
+        let sql = `SELECT * FROM user_table WHERE id=?`;
+        if(type=='manager'){
+            sql += ` AND user_level>=30 `
+        }
+        db.query(sql, [id], async (err, result1) => {
             if (err) {
                 console.log(err)
                 return response(req, res, -200, "서버 에러 발생", [])
@@ -233,7 +240,7 @@ const onLoginById = async (req, res) => {
                                 } catch (err) {
                                     requestIp = '0.0.0.0'
                                 }
-                                return insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)',[requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
+                                return insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
                             } catch (e) {
                                 console.log(e)
                                 return response(req, res, -200, "서버 에러 발생", [])
@@ -602,6 +609,7 @@ const changePassword = (req, res) => {
 }
 const getUserToken = (req, res) => {
     try {
+        
         const decode = checkLevel(req.cookies.token, 0)
         if (decode) {
             let pk = decode.pk;
@@ -1279,7 +1287,9 @@ const addItem = (req, res) => {
                 return response(req, res, -200, "서버 에러 발생", []);
             } else {
                 if (want_push == 1) {
-                    sendAlarm(`${getKoreaByEng(table) + title}`, "", "notice", result.insertId, `/post/${table}/${result.insertId}`);
+                    sendAlarm(`${title}`, "", "notice", result.insertId, `/post/${table}/${result.insertId}`);
+                    insertQuery("INSERT INTO alarm_log_table (title, note, item_table, item_pk, url) VALUES (?, ?, ?, ?, ?)", [title, "", table, result.insertId, `/post/${table}/${result.insertId}`])
+               
                 }
                 await db.query(`UPDATE ${table}_table SET sort=? WHERE pk=?`, [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
@@ -1449,7 +1459,7 @@ const getItem = (req, res) => {
         if (table == "setting") {
             whereStr = "";
         }
-
+        
         let sql = `SELECT * FROM ${table}_table ` + whereStr;
 
         if (table != "user" && table != "issue_category" && table != "feature_category" && table != "alarm") {
@@ -1574,7 +1584,7 @@ const addNotice = (req, res) => {
                 return response(req, res, -200, "서버 에러 발생", [])
             } else {
                 sendAlarm("공지사항: " + title, "", "notice", result.insertId);
-                //insertQuery("INSERT INTO alarm_log_table (title, note, item_table, item_pk) VALUES (?, ?, ?, ?)", [title, "", "notice", result.insertId])
+                insertQuery("INSERT INTO alarm_log_table (title, note, item_table, item_pk, url) VALUES (?, ?, ?, ?, ?)", [title, "", "notice", result.insertId,`/post/notice/${result.insertId}`])
                 await db.query("UPDATE notice_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
@@ -1709,15 +1719,20 @@ const getOneEvent = (req, res) => {
 const getItems = (req, res) => {
     try {
         let { level, category_pk, status, user_pk, keyword, limit, page, page_cut, order } = req.query;
+        console.log(req.query)
         let table = req.query.table ?? "user";
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
 
         let whereStr = " WHERE 1=1 ";
         if (level) {
+            if(level==0){
+                whereStr += ` AND user_level=${level} `;
 
-            whereStr += ` AND user_level=${level} `;
+            }else{
+                whereStr += ` AND user_level>=${level} `;
 
+            }
         }
         if (category_pk) {
             whereStr += ` AND category_pk=${category_pk} `;
@@ -1728,6 +1743,7 @@ const getItems = (req, res) => {
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
+
         if (keyword) {
             if (table == 'comment') {
                 whereStr += ` AND (item_title LIKE '%${keyword}%' OR user_nickname LIKE '%${keyword}%' OR note LIKE '%${keyword}%') `;
@@ -2013,10 +2029,55 @@ const setCountNotReadNoti = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+const getDailyPercent = (req, res) => {
+    try {
+        db.query('SELECT * FROM daily_percentage_table', (err, result) => {
+            if (err) {
+                console.log(err)
+                return response(req, res, -200, "서버 에러 발생", [])
+            } else {
+                return response(req, res, 100, "success", result[0]);
+            }
+        })
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const updateDailyPercent = (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -200, "권한이 없습니다.", [])
+        } else {
+            const { type_percent, money, money_percent, date, pk } = req.body;
+            db.query('UPDATE daily_percentage_table SET type_percent=?, money=?, money_percent=?, date=? WHERE pk=?', [type_percent, money, money_percent, date, pk], (err, result) => {
+                if (err) {
+                    console.log(err)
+                    return response(req, res, -200, "서버 에러 발생", [])
+                } else {
+                    return response(req, res, 100, "success", []);
+                }
+            })
+        }
+
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const publishDailyPay = (req, res) => {//데일리 수당발행
+    try {
+
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
-    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk,//select
+    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent,//select
     addMaster, onSignUp, addOneWord, addOneEvent, addItem, addIssueCategory, addNoteImage, addVideo, addSetting, addChannel, addFeatureCategory, addNotice, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm,//update
+    updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent,//update
     deleteItem, onResign,
 };

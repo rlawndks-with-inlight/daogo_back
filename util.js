@@ -59,7 +59,7 @@ let checkLevel = (token, level) => {
         })
         const user_level = decoded.user_level
 
-        if (level > user_level && user_level != -10)
+        if (level > user_level)
             return false
         else
             return decoded
