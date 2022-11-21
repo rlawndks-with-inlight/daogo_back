@@ -38,6 +38,7 @@
     "path": "^0.12.7",
     "sequelize": "^6.6.5",
     "sequelize-cli": "^6.2.0",
-    "socket.io": "latest"
+    "socket.io": "latest",
+    "when": "^3.7.8"
   }
 }
