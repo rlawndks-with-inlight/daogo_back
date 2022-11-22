@@ -3,7 +3,7 @@ const router = express.Router();
 const { upload } = require('../config/multerConfig')
 const {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
-    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText,//select
+    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables,//select
     addMaster, onSignUp, addOneWord, addOneEvent, addItem, addIssueCategory, addNoteImage, addVideo, addSetting, addChannel, addFeatureCategory, addNotice, addComment, addAlarm,//insert 
     updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent,//update
     deleteItem, onResign,
@@ -34,8 +34,13 @@ router.get('/auth', getUserToken);
 router.get('/users', getUsers);
 router.post('/addoneword', upload.single('content'), addOneWord);
 router.post('/addoneevent', upload.single('content'), addOneEvent);
-router.post('/additem', upload.fields([{ name: 'content' }, { name: 'content2' }]), addItem);
-router.post('/updateitem', upload.fields([{ name: 'content' }, { name: 'content2' }]), updateItem);
+
+router.post('/additem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), addItem);
+router.post('/updateitem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), updateItem);
+router.post('/deleteitem', deleteItem);
+router.post('/getalldatabytables', getAllDataByTables);
+
+
 router.post('/addvideo', addVideo);
 router.post('/updatevideo', updateVideo);
 router.post('/addnotice', addNotice);
@@ -45,7 +50,6 @@ router.post('/updateissuecategory', upload.single('content'), updateIssueCategor
 router.post('/addfeaturecategory', upload.single('content'), addFeatureCategory);
 router.post('/updatefeaturecategory', upload.single('content'), updateFeatureCategory);
 router.post('/addimage', upload.single('note'), addNoteImage);
-router.post('/deleteitem', deleteItem);
 router.post('/resign', onResign);
 router.post('/updateuser', updateUser);
 router.get('/onsearchallitem', onSearchAllItem);

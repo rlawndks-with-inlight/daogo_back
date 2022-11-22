@@ -19,7 +19,7 @@ const {
     getKioskList, getItemRows, getItemList, dbQueryList, dbQueryRows, insertQuery, getTableAI
 } = require('../query-util')
 const macaddress = require('node-macaddress');
-
+const when = require('when');
 const db = require('../config/db')
 const { upload } = require('../config/multerConfig')
 const { Console } = require('console')
@@ -1277,16 +1277,46 @@ const getKoreaByEng = (str) => {
 }
 const addItem = (req, res) => {
     try {
-        let body = req.body;
-        body = delete body['table'];
+        let body = { ...req.body };
+        delete body['table'];
         let keys = Object.keys(body);
-        let files = req.files;
+        let values = [];
+        let values_str = "";
+
+        for (var i = 0; i < keys.length; i++) {
+            values.push(body[keys[i]]);
+            if (i != 0) {
+                values_str += ",";
+            }
+            values_str += " ?";
+        }
+        let files = { ...req.files };
+        let files_keys = Object.keys(files);
+        for (var i = 0; i < files_keys.length; i++) {
+            values.push(
+                '/image/' + req.files[files_keys][0].fieldname + '/' + req.files[files_keys][0].filename
+            );
+            keys.push('img_src');
+            values_str += ", ?"
+        }
         let table = req.body.table;
-        console.log(body);
-        console.log(keys);
-        console.log(files);
-        console.log(table);
-        let sql = `INSERT INTO ${table}_table `
+        let sql = `INSERT INTO ${table}_table (${keys.join()}) VALUES (${values_str}) `;
+        db.query(sql, values, async (err, result) => {
+            if (err) {
+                console.log(err)
+                return response(req, res, -200, "서버 에러 발생", [])
+            }
+            else {
+                await db.query(`UPDATE ${table}_table SET sort=? WHERE pk=?`, [result?.insertId, result?.insertId], (err, resultup) => {
+                    if (err) {
+                        console.log(err)
+                        return response(req, res, -200, "fail", [])
+                    } else {
+                        return response(req, res, 200, "success", [])
+                    }
+                })
+            }
+        })
     } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
@@ -1294,35 +1324,84 @@ const addItem = (req, res) => {
 }
 const updateItem = (req, res) => {
     try {
-        const { title, hash, suggest_title, note, user_pk, table, category, font_color, background_color, note_align, pk } = req.body;
-        let zColumn = [title, hash, suggest_title, note, user_pk, font_color, background_color, note_align];
-        let columns = " title=?, hash=?, suggest_title=?, note=?, user_pk=?, font_color=?, background_color=?, note_align=? ";
-        if (category) {
-            zColumn.push(category);
-            columns += ', category_pk=? '
+        let body = { ...req.body };
+        delete body['table'];
+        delete body['pk'];
+        let keys = Object.keys(body);
+        let values = [];
+        let values_str = "";
+
+        for (var i = 0; i < keys.length; i++) {
+            values.push(body[keys[i]]);
+            if (i != 0) {
+                values_str += ",";
+            }
+            values_str += " ?";
         }
-        let content_image = "";
-        let content2_image = "";
-        if (req.files.content) {
-            content_image = '/image/' + req.files.content[0].fieldname + '/' + req.files.content[0].filename;
-            zColumn.push(content_image);
-            columns += ', main_img=?';
+        let files = { ...req.files };
+        console.log(files)
+        let files_keys = Object.keys(files);
+        for (var i = 0; i < files_keys.length; i++) {
+            values.push(
+                '/image/' + req.files[files_keys][0].fieldname + '/' + req.files[files_keys][0].filename
+            );
+            keys.push('img_src');
+            values_str += ", ?"
         }
-        if (req.files.content2) {
-            content2_image = '/image/' + req.files.content2[0].fieldname + '/' + req.files.content2[0].filename;
-            zColumn.push(content2_image);
-            columns += ', second_img=?';
-        }
-        zColumn.push(pk)
-        db.query(`UPDATE ${table}_table SET ${columns} WHERE pk=? `, zColumn, (err, result) => {
+        let table = req.body.table;
+        let sql = `UPDATE ${table}_table SET ${keys.join("=?,")}=? WHERE pk=?`;
+        values.push(req.body.pk);
+        db.query(sql, values, async (err, result) => {
             if (err) {
                 console.log(err)
-                return response(req, res, -200, "서버 에러 발생", []);
-            } else {
-                return response(req, res, 100, "success", []);
+                return response(req, res, -200, "서버 에러 발생", [])
+            }
+            else {
+                return response(req, res, 200, "success", [])
             }
         })
     } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const getAllDataByTables = async (req, res) => {
+    try {
+        let result_list = [];
+        let tables = req.body.tables;
+        for (var i = 0; i < tables.length; i++) {
+            result_list.push(queryPromise(tables[i], `SELECT * FROM ${tables[i]}_table ORDER BY pk DESC`));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let ans = (await when(result_list));
+        let result = {};
+        for (var i = 0; i < ans.length; i++) {
+            result[(await ans[i])?.table] = (await ans[i])?.data
+        }
+        return response(req, res, 100, "success", result);
+
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const deleteItem = (req, res) => {
+    try {
+        let pk = req.body.pk ?? 0;
+        let table = req.body.table ?? "";
+        let sql = `DELETE FROM ${table}_table WHERE pk=? `
+        db.query(sql, [pk], (err, result) => {
+            if (err) {
+                console.log(err)
+                return response(req, res, -200, "서버 에러 발생", [])
+            } else {
+                return response(req, res, 100, "success", [])
+            }
+        })
+    }
+    catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
@@ -1447,18 +1526,6 @@ const getItem = (req, res) => {
 
         let sql = `SELECT * FROM ${table}_table ` + whereStr;
 
-        if (table != "user" && table != "issue_category" && table != "feature_category" && table != "alarm") {
-            sql = `SELECT ${table}_table.* , user_table.nickname, user_table.name FROM ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk = user_table.pk WHERE ${table}_table.pk=? LIMIT 1`
-        }
-        if (req.query.views) {
-            db.query(`UPDATE ${table}_table SET views=views+1 WHERE pk=?`, [pk], (err, result_view) => {
-                if (err) {
-                    console.log(err)
-                    return response(req, res, -200, "서버 에러 발생", [])
-                } else {
-                }
-            })
-        }
         db.query(sql, [pk], (err, result) => {
             if (err) {
                 console.log(err)
@@ -1725,7 +1792,6 @@ const getItems = (req, res) => {
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
-
         if (keyword) {
             if (table == 'comment') {
                 whereStr += ` AND (item_title LIKE '%${keyword}%' OR user_nickname LIKE '%${keyword}%' OR note LIKE '%${keyword}%') `;
@@ -1733,6 +1799,13 @@ const getItems = (req, res) => {
                 whereStr += ` AND title LIKE '%${keyword}%' `;
             }
         }
+        if(table == 'coupon'){
+            sql = "SELECT coupon_table.*,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
+            sql += " coupon_table LEFT JOIN coupon_category_table ON coupon_table.category_pk=coupon_category_table.pk ";
+            sql += "  LEFT JOIN coupon_brand_table ON coupon_table.brand_pk=coupon_brand_table.pk ";
+            whereStr = "";
+        }
+
         if (!page_cut) {
             page_cut = 15;
         }
@@ -1790,25 +1863,7 @@ const getSetting = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const deleteItem = (req, res) => {
-    try {
-        let pk = req.body.pk ?? 0;
-        let table = req.body.table ?? "";
-        let sql = `DELETE FROM ${table}_table WHERE pk=? `
-        db.query(sql, [pk], (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                return response(req, res, 100, "success", [])
-            }
-        })
-    }
-    catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
+
 const addSetting = (req, res) => {
     try {
         const image = '/image/' + req.file.fieldname + '/' + req.file.filename;
@@ -2057,7 +2112,7 @@ const publishDailyPay = (req, res) => {//데일리 수당발행
 }
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
-    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText,//select
+    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables,//select
     addMaster, onSignUp, addOneWord, addOneEvent, addItem, addIssueCategory, addNoteImage, addVideo, addSetting, addChannel, addFeatureCategory, addNotice, addComment, addAlarm,//insert 
     updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent,//update
     deleteItem, onResign,
