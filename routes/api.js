@@ -585,17 +585,31 @@ const findAuthByIdAndPhone = (req, res) => {
 }
 const checkExistId = (req, res) => {
     try {
+        const decode = checkLevel(req.cookies.token, 40)
         const id = req.body.id;
+        const is_get_user_info = req.body.is_get_user_info;
+        if(!decode && is_get_user_info){
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
         db.query(`SELECT * FROM user_table WHERE id=? `, [id], (err, result) => {
             if (err) {
                 console.log(err)
                 return response(req, res, -200, "서버 에러 발생", [])
             } else {
-                if (result.length > 0) {
-                    return response(req, res, -50, "이미 사용중인 아이디입니다.", []);
-                } else {
-                    return response(req, res, 100, "사용가능한 아이디입니다.", []);
+                if(is_get_user_info){
+                    if (result.length > 0) {
+                        return response(req, res, 100, "success", result[0]);
+                    } else {
+                        return response(req, res, -100, "존재하지 않은 판매자 아이디입니다.", []);
+                    }
+                }else{
+                    if (result.length > 0) {
+                        return response(req, res, -50, "이미 사용중인 아이디입니다.", []);
+                    } else {
+                        return response(req, res, 100, "사용가능한 아이디입니다.", []);
+                    }
                 }
+                
             }
         })
 
@@ -1800,12 +1814,17 @@ const getItems = (req, res) => {
             }
         }
         if(table == 'coupon'){
-            sql = "SELECT coupon_table.*,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
+            sql = "SELECT coupon_table.*, (price - sell_price) AS discount_price ,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
             sql += " coupon_table LEFT JOIN coupon_category_table ON coupon_table.category_pk=coupon_category_table.pk ";
             sql += "  LEFT JOIN coupon_brand_table ON coupon_table.brand_pk=coupon_brand_table.pk ";
             whereStr = "";
         }
-
+        if(table == 'outlet'){
+            sql = "SELECT outlet_table.*, outlet_category_table.name AS category_name,outlet_brand_table.name AS brand_name from ";
+            sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
+            sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
+            whereStr = "";
+        }
         if (!page_cut) {
             page_cut = 15;
         }
@@ -2044,27 +2063,7 @@ const getCountNotReadNoti = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const setCountNotReadNoti = async (req, res) => {
-    try {
-        const { table, pk, mac, category } = req.body;
-        let notice_ai = await getTableAI("notice").result - 1;
-        let alarm_ai = await getTableAI("alarm").result - 1;
 
-        let key = pk || mac;
-        db.query(`UPDATE ${table}_table SET last_${category}_pk=${category == 'notice' ? notice_ai : alarm_ai} WHERE ${pk ? 'pk' : 'mac_address'}=?`, [key], (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                return response(req, res, 100, "success", { item: { mac_address: mac, last_alarm_pk: 0, last_notice_pk: 0 }, notice_ai: notice_ai.result, alarm_ai: alarm_ai.result })
-            }
-        })
-
-    } catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
 const getDailyPercent = (req, res) => {
     try {
         db.query('SELECT * FROM daily_percentage_table', (err, result) => {
@@ -2102,14 +2101,7 @@ const updateDailyPercent = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const publishDailyPay = (req, res) => {//데일리 수당발행
-    try {
 
-    } catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
     getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables,//select
