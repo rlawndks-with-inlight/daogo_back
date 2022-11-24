@@ -56,6 +56,7 @@ router.get('/onsearchallitem', onSearchAllItem);
 router.get('/oneword', getOneWord);
 router.get('/oneevent', getOneEvent);
 router.get('/items', getItems);
+router.post('/items', getItems);
 router.get('/item', getItem);
 router.get('/gethomecontent', getHomeContent);
 router.post('/updatesetting', upload.single('master'), updateSetting);

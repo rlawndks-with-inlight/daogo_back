@@ -1035,7 +1035,7 @@ const getHomeContent = async (req, res) => {
           //  {table:"star",sql:""},
            // {table:"point",sql:""},
            {table:"user",sql:"SELECT id, parent_pk, parent_id, name, nickname, profile_img FROM user_table"},
-           {table:"notice",sql:"SELECT * FROM notice_table ORDER BY sort DESC"},
+           {table:"notice",sql:"SELECT * FROM notice_table ORDER BY sort DESC LIMIT 0, 3"},
         ];
 
         for (var i = 0; i < sql_list.length; i++) {
@@ -1788,8 +1788,7 @@ const getOneEvent = (req, res) => {
 }
 const getItems = (req, res) => {
     try {
-        let { level, category_pk, status, user_pk, keyword, limit, page, page_cut, order } = req.query;
-        let table = req.query.table ?? "user";
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword,keyword_columns, limit, page, page_cut, order } = (req.query.table?{...req.query}:undefined) || (req.body.table?{...req.body}:undefined);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
 
@@ -1806,30 +1805,32 @@ const getItems = (req, res) => {
         if (category_pk) {
             whereStr += ` AND category_pk=${category_pk} `;
         }
+        if (brand_pk) {
+            whereStr += ` AND brand_pk=${brand_pk} `;
+        }
         if (status) {
             whereStr += ` AND status=${status} `;
         }
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
-        if (keyword) {
-            if (table == 'comment') {
-                whereStr += ` AND (item_title LIKE '%${keyword}%' OR user_nickname LIKE '%${keyword}%' OR note LIKE '%${keyword}%') `;
-            } else {
-                whereStr += ` AND title LIKE '%${keyword}%' `;
-            }
-        }
+       
         if(table == 'coupon'){
             sql = "SELECT coupon_table.*, (price - sell_price) AS discount_price ,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
             sql += " coupon_table LEFT JOIN coupon_category_table ON coupon_table.category_pk=coupon_category_table.pk ";
             sql += "  LEFT JOIN coupon_brand_table ON coupon_table.brand_pk=coupon_brand_table.pk ";
-            whereStr = "";
         }
         if(table == 'outlet'){
             sql = "SELECT outlet_table.*, outlet_category_table.name AS category_name,outlet_brand_table.name AS brand_name from ";
             sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
-            whereStr = "";
+        }
+        if (keyword) {
+            whereStr += " AND (";
+            for(var i = 0;i<keyword_columns.length;i++){
+                whereStr += ` ${i!=0?'OR':''} ${keyword_columns} LIKE '%${keyword}%' `;
+            }
+            whereStr += ")";
         }
         if (!page_cut) {
             page_cut = 15;
