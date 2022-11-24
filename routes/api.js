@@ -260,10 +260,13 @@ const onLoginById = async (req, res) => {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
                                     nickname: result1[0].nickname,
+                                    name: result1[0].name,
                                     id: result1[0].id,
                                     user_level: result1[0].user_level,
                                     phone: result1[0].phone,
                                     profile_img: result1[0].profile_img,
+                                    parent_pk:result1[0].parent_pk,
+                                    parent_id:result1[0].parent_id,
                                     type: result1[0].type
                                 },
                                     jwtSecret,
@@ -671,14 +674,8 @@ const getUserToken = (req, res) => {
 
         const decode = checkLevel(req.cookies.token, 0)
         if (decode) {
-            let pk = decode.pk;
-            let nickname = decode.nickname;
-            let id = decode.id;
-            let phone = decode.phone;
-            let user_level = decode.user_level;
-            let profile_img = decode.profile_img;
-            let type = decode.type;
-            res.send({ id, pk, nickname, phone, user_level, profile_img, type })
+            let obj = decode;
+            res.send(obj);
         }
         else {
             res.send({
@@ -1026,25 +1023,34 @@ const queryPromise = (table, sql) => {
 }
 const getHomeContent = async (req, res) => {
     try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if(!decode){
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
+        console.log(decode)
         let result_list = [];
-        let sql_list = ['SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1',
-            'SELECT * FROM user_table WHERE user_level=30 AND status=1 ORDER BY sort DESC',
-            'SELECT pk, title, hash FROM oneword_table WHERE status=1 ORDER BY sort DESC LIMIT 1',
-            'SELECT pk, title, hash FROM oneevent_table WHERE status=1 ORDER BY sort DESC LIMIT 1',
-            'SELECT pk, title, hash, main_img, font_color, background_color, date FROM issue_table WHERE status=1 ORDER BY sort DESC LIMIT 5',
-            'SELECT pk, title, hash, main_img, font_color, background_color, date FROM theme_table WHERE status=1 ORDER BY sort DESC LIMIT 5',
-            'SELECT pk, title, hash, main_img, font_color, background_color, date FROM strategy_table WHERE status=1 ORDER BY sort DESC LIMIT 3',
-            'SELECT pk, title, hash, main_img, font_color, background_color, date FROM feature_table WHERE status=1 ORDER BY sort DESC LIMIT 5',
-            'SELECT pk, title, font_color, background_color, link FROM video_table WHERE status=1 ORDER BY sort DESC LIMIT 5'];
+
+        let sql_list = [
+           // {table:"randombox",sql:""},
+          //  {table:"star",sql:""},
+           // {table:"point",sql:""},
+           {table:"user",sql:"SELECT id, parent_pk, parent_id, name, nickname, profile_img FROM user_table"},
+           {table:"notice",sql:"SELECT * FROM notice_table ORDER BY sort DESC"},
+        ];
 
         for (var i = 0; i < sql_list.length; i++) {
-            result_list.push(queryPromise('', sql_list[i]));
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
         }
         for (var i = 0; i < result_list.length; i++) {
             await result_list[i];
         }
         let result = (await when(result_list));
-        return response(req, res, 100, "success", { setting: (await result[0])?.data[0] ?? {}, masters: (await result[1])?.data ?? [], oneWord: (await result[2])?.data[0] ?? {}, oneEvent: (await result[3])?.data[0] ?? {}, issues: (await result[4])?.data ?? [], themes: (await result[5])?.data ?? [], strategies: (await result[6])?.data ?? [], features: (await result[7])?.data ?? [], videos: (await result[8])?.data ?? [] })
+        let obj = {};
+        for(var i = 0;i<(await result).length;i++){
+            obj[(await result[i])?.table] = [...(await result[i])?.data];
+        }
+        obj['auth'] = {...decode};
+        return response(req, res, 100, "success", obj)
 
     } catch (err) {
         console.log(err)
