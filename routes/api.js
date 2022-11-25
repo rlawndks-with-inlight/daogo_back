@@ -1828,7 +1828,7 @@ const getItems = (req, res) => {
         if (keyword) {
             whereStr += " AND (";
             for(var i = 0;i<keyword_columns.length;i++){
-                whereStr += ` ${i!=0?'OR':''} ${keyword_columns} LIKE '%${keyword}%' `;
+                whereStr += ` ${i!=0?'OR':''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
             }
             whereStr += ")";
         }
