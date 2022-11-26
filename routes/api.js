@@ -1035,7 +1035,7 @@ const getHomeContent = async (req, res) => {
           //  {table:"star",sql:""},
            // {table:"point",sql:""},
            {table:"user",sql:"SELECT id, parent_pk, parent_id, name, nickname, profile_img FROM user_table"},
-           {table:"notice",sql:"SELECT * FROM notice_table ORDER BY sort DESC LIMIT 0, 3"},
+           {table:"notice",sql:"SELECT * FROM notice_table WHERE status=1 ORDER BY sort DESC LIMIT 0, 3"},
         ];
 
         for (var i = 0; i < sql_list.length; i++) {
