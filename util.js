@@ -156,6 +156,21 @@ const logRequestResponse = (req, res) => {
     )
 
 }
+const logManagerAction = (req, res, item) => {
+    let { user_pk, manager_note, reason_correction } = item;
+    let requestIp;
+    try {
+        requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '0.0.0.0'
+    } catch (err) {
+        requestIp = '0.0.0.0'
+    }
+    db.query("INSERT INTO log_manager_action_table (user_pk, ip, manager_note, reason_correction) VALUES (?, ?, ?, ?)", [user_pk, requestIp, manager_note, reason_correction], (err, result) => {
+        if (err){
+            console.log(err);
+        } else {
+        }
+    })
+}
 const logRequest = (req) => {
     const requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip
     let request = {
@@ -256,14 +271,22 @@ function getSQLnParams(query, params, colNames) {
     return { sql, param: returnParams }
 }
 
-function response(req, res, code, message, data) {
+async function response(req, res, code, message, data) {
     var resDict = {
         'result': code,
         'message': message,
         'data': data,
     }
     if (code < 0 || req.originalUrl.includes('login')) {
-        logRequestResponse(req, resDict);
+        //logRequestResponse(req, resDict);
+    }
+    if (req?.body?.manager_note&&code > 0) {
+        const decode = checkLevel(req.cookies.token, 40);
+        await logManagerAction(req,resDict,{
+            user_pk:decode.pk??-1, 
+            manager_note:req?.body?.manager_note??"", 
+            reason_correction:req?.body?.reason_correction??""
+        } )
     }
     res.send(resDict);
 }

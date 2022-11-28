@@ -51,7 +51,7 @@ router.post('/addfeaturecategory', upload.single('content'), addFeatureCategory)
 router.post('/updatefeaturecategory', upload.single('content'), updateFeatureCategory);
 router.post('/addimage', upload.single('note'), addNoteImage);
 router.post('/resign', onResign);
-router.post('/updateuser', updateUser);
+router.post('/updateuser', upload.single('profile'), updateUser);
 router.get('/onsearchallitem', onSearchAllItem);
 router.get('/oneword', getOneWord);
 router.get('/oneevent', getOneEvent);

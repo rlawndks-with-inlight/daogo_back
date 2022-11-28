@@ -123,13 +123,12 @@ const onSignUp = async (req, res) => {
         console.log(req.body);
         //logRequest(req)
         const id = req.body.id ?? "";
-        const pw = req.body.pw ?? "";
+        const pw = "a123456!";
         const name = req.body.name ?? "";
         const nickname = req.body.nickname ?? "";
         const phone = req.body.phone ?? "";
         const user_level = req.body.user_level ?? 0;
-        const type_num = req.body.type_num ?? 0;
-        const profile_img = req.body.profile_img ?? "";
+        const parent_id = req.body.parent_id ?? "";
         if (user_level == 0) {//회원추가
 
         } else {//관리자 추가
@@ -141,7 +140,7 @@ const onSignUp = async (req, res) => {
         }
         let sql = "SELECT * FROM user_table WHERE id=? OR nickname=? OR user_level=? "
 
-        db.query(sql, [id, nickname, -10], (err, result) => {
+        db.query(sql, [id, nickname, -10], async(err, result) => {
             if (result.length > 0) {
                 let msg = "";
                 let i = 0;
@@ -163,35 +162,40 @@ const onSignUp = async (req, res) => {
                     return response(req, res, -200, msg, [])
                 }
             } else {
-                crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
-                    // bcrypt.hash(pw, salt, async (err, hash) => {
-                    let hash = decoded.toString('base64')
-
+                await db.query("SELECT * FROM user_table WHERE id=?",[parent_id],async(err, parent_result)=>{
                     if (err) {
                         console.log(err)
-                        return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
-                    }
-
-                    sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, type, profile_img) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                    await db.query(sql, [id, hash, name, nickname, phone, user_level, type_num, profile_img], async (err, result) => {
-
-                        if (err) {
-                            console.log(err)
-                            return response(req, res, -200, "회원 추가 실패", [])
-                        }
-                        else {
-                            await db.query("UPDATE user_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
+                        return response(req, res, -200, "서버에러 발생", [])
+                    }else{
+                        if(parent_result.length > 0 || user_level > 0 ){
+                            
+                            await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
+                                // bcrypt.hash(pw, salt, async (err, hash) => {
+                                let hash = decoded.toString('base64');
+            
                                 if (err) {
                                     console.log(err)
-                                    return response(req, res, -200, "회원 추가 실패", [])
+                                    return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                                 }
-                                else {
-                                    return response(req, res, 200, "회원 추가 성공", [])
-                                }
+            
+                                sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, parent_id, parent_pk, depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                await db.query(sql, [id, hash, name, nickname, phone, user_level,parent_result[0]?.id??"",parent_result[0]?.pk??0,parent_result[0]?.depth+1], async (err, result) => {
+            
+                                    if (err) {
+                                        console.log(err)
+                                        return response(req, res, -200, "서버에러 발생", [])
+                                    }
+                                    else {
+                                        return response(req, res, 100, "success", [])
+                                    }
+                                })
                             })
+                        }else{
+                            return response(req, res, -100, "추천인 아이디가 존재하지 않습니다.", []);
                         }
-                    })
+                    }
                 })
+                
             }
         })
 
@@ -762,12 +766,8 @@ const getUsers = (req, res) => {
 
 const updateUser = async (req, res) => {
     try {
-        const id = req.body.id ?? "";
-        let pw = req.body.pw ?? "";
-        const name = req.body.name ?? "";
-        const nickname = req.body.nickname ?? "";
-        const phone = req.body.phone ?? "";
-        const user_level = req.body.user_level ?? 0;
+        let {id,pw,name,nickname,phone,user_level,payment_pw,zip_code,address,address_detail,bank_name,account_number,account_name} = req.body;
+
         const pk = req.body.pk ?? 0;
         if (pw) {
             await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
@@ -1021,6 +1021,26 @@ const queryPromise = (table, sql) => {
         })
     })
 }
+const makeHash = (pw) => {
+
+    return new Promise(async (resolve, reject) => {
+        await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
+            // bcrypt.hash(pw, salt, async (err, hash) => {
+                let hash = decoded.toString('base64');
+                if (err) {
+                    reject({
+                        code: -200,
+                        data: undefined,
+                    })
+                } else {
+                    resolve({
+                        code: 200,
+                        data: hash,
+                    })
+                }
+        })
+    })
+}
 const getHomeContent = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -1228,10 +1248,10 @@ const addOneWord = (req, res) => {
                 await db.query("UPDATE oneword_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
                     if (err) {
                         console.log(err)
-                        return response(req, res, -200, "fail", [])
+                        return response(req, res, -200, "fail", []);
                     }
                     else {
-                        return response(req, res, 200, "success", [])
+                        return response(req, res, 200, "success", []);
                     }
                 })
 
@@ -1239,7 +1259,7 @@ const addOneWord = (req, res) => {
         })
     } catch (err) {
         console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
+        return response(req, res, -200, "서버 에러 발생", []);
     }
 }
 const addOneEvent = (req, res) => {
@@ -1297,8 +1317,14 @@ const getKoreaByEng = (str) => {
 }
 const addItem = (req, res) => {
     try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if(!decode){
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
         let body = { ...req.body };
         delete body['table'];
+        delete body['reason_correction'];
+        delete body['manager_note'];
         let keys = Object.keys(body);
         let values = [];
         let values_str = "";
@@ -1342,14 +1368,34 @@ const addItem = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const updateItem = (req, res) => {
+
+const updateItem = async (req, res) => {
     try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if(!decode){
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
         let body = { ...req.body };
+        console.log(body)
+
         delete body['table'];
         delete body['pk'];
+        delete body['hash_list'];
+        delete body['reason_correction'];
+        delete body['manager_note'];
         let keys = Object.keys(body);
         let values = [];
         let values_str = "";
+        if(req.body.hash_list && req.body.hash_list?.length>0){
+            for(var i = 0; i < req.body.hash_list?.length;i++){
+                let hash_result = await makeHash(body[req.body.hash_list[i]]);
+                if(!hash_result){
+                    return response(req, res, -100, "fail", [])
+                }else{
+                    body[req.body.hash_list[i]] = hash_result?.data;
+                }
+            }
+        }
 
         for (var i = 0; i < keys.length; i++) {
             values.push(body[keys[i]]);
@@ -1371,20 +1417,29 @@ const updateItem = (req, res) => {
         let table = req.body.table;
         let sql = `UPDATE ${table}_table SET ${keys.join("=?,")}=? WHERE pk=?`;
         values.push(req.body.pk);
-        db.query(sql, values, async (err, result) => {
-            if (err) {
-                console.log(err)
+        db.beginTransaction((err)=>{
+            if(err){
                 return response(req, res, -200, "서버 에러 발생", [])
-            }
-            else {
-                return response(req, res, 200, "success", [])
+            }else{
+                db.query(sql, values, async (err, result) => {
+                    if (err) {
+                        console.log(err)
+                        response(req, res, -200, "서버 에러 발생", [])
+                        return db.rollback();
+                    }
+                    else {
+                        return response(req, res, 200, "success", [])
+                    }
+                })
             }
         })
+       
     } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+
 const getAllDataByTables = async (req, res) => {
     try {
         let result_list = [];
@@ -1824,6 +1879,10 @@ const getItems = (req, res) => {
             sql = "SELECT outlet_table.*, outlet_category_table.name AS category_name,outlet_brand_table.name AS brand_name from ";
             sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
+        }
+        if(table=='log_manager_action'){
+            sql = "SELECT log_manager_action_table.*, user_table.name AS user_name FROM ";
+            sql += " log_manager_action_table LEFT JOIN user_table ON log_manager_action_table.user_pk=user_table.pk ";
         }
         if (keyword) {
             whereStr += " AND (";
