@@ -138,49 +138,34 @@ const onSignUp = async (req, res) => {
         if (decode.user_level < 40 && user_level > 0) {
             return response(req, res, -100, "권한이 없습니다.", [])
         }
-        let sql = "SELECT * FROM user_table WHERE id=? OR nickname=? OR user_level=? "
-
-        db.query(sql, [id, nickname, -10], async(err, result) => {
+        let sql = "SELECT * FROM user_table WHERE id=? "
+        let depth = 0;
+        db.query(sql, [id, nickname, -10], async (err, result) => {
             if (result.length > 0) {
-                let msg = "";
-                let i = 0;
-                for (i = 0; i < result.length; i++) {
-                    if (result[i].id == id) {
-                        msg = "아이디가 중복됩니다.";
-                        break;
-                    }
-                    if (result[i].nickname == nickname) {
-                        msg = "닉네임이 중복됩니다.";
-                        break;
-                    }
-                    if (result[i].user_level == -10 && result[i].phone == phone) {
-                        msg = "가입할 수 없습니다.";
-                        break;
-                    }
-                }
-                if (i != result.length) {
-                    return response(req, res, -200, msg, [])
-                }
+                return response(req, res, -200, "아이디가 중복됩니다.", [])
             } else {
-                await db.query("SELECT * FROM user_table WHERE id=?",[parent_id],async(err, parent_result)=>{
+                await db.query("SELECT * FROM user_table WHERE id=?", [parent_id], async (err, parent_result) => {
                     if (err) {
                         console.log(err)
                         return response(req, res, -200, "서버에러 발생", [])
-                    }else{
-                        if(parent_result.length > 0 || user_level > 0 ){
-                            
+                    } else {
+                        if (parent_result.length > 0 || user_level > 0) {
+
                             await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
                                 // bcrypt.hash(pw, salt, async (err, hash) => {
                                 let hash = decoded.toString('base64');
-            
+
                                 if (err) {
                                     console.log(err)
                                     return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                                 }
-            
+
                                 sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, parent_id, parent_pk, depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                                await db.query(sql, [id, hash, name, nickname, phone, user_level,parent_result[0]?.id??"",parent_result[0]?.pk??0,parent_result[0]?.depth+1], async (err, result) => {
-            
+                                if(parent_result[0]){
+                                    depth = parent_result[0]?.depth + 1;
+                                }
+                                await db.query(sql, [id, hash, name, nickname, phone, user_level, parent_result[0]?.id ?? "", parent_result[0]?.pk ?? 0, depth], async (err, result) => {
+
                                     if (err) {
                                         console.log(err)
                                         return response(req, res, -200, "서버에러 발생", [])
@@ -190,12 +175,12 @@ const onSignUp = async (req, res) => {
                                     }
                                 })
                             })
-                        }else{
+                        } else {
                             return response(req, res, -100, "추천인 아이디가 존재하지 않습니다.", []);
                         }
                     }
                 })
-                
+
             }
         })
 
@@ -263,14 +248,14 @@ const onLoginById = async (req, res) => {
                             try {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
-                                    nickname: result1[0].nickname,
                                     name: result1[0].name,
                                     id: result1[0].id,
                                     user_level: result1[0].user_level,
                                     phone: result1[0].phone,
                                     profile_img: result1[0].profile_img,
-                                    parent_pk:result1[0].parent_pk,
-                                    parent_id:result1[0].parent_id,
+                                    parent_pk: result1[0].parent_pk,
+                                    parent_id: result1[0].parent_id,
+                                    depth: result1[0].depth,
                                     type: result1[0].type
                                 },
                                     jwtSecret,
@@ -285,7 +270,7 @@ const onLoginById = async (req, res) => {
                                         return response(req, res, -200, "서버 에러 발생", [])
                                     }
                                 })
-                                return response(req, res, 200, result1[0].nickname + ' 님 환영합니다.', result1[0]);
+                                return response(req, res, 200, result1[0].name + ' 님 환영합니다.', result1[0]);
                                 let requestIp;
                                 try {
                                     requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '0.0.0.0'
@@ -329,6 +314,7 @@ const onLoginBySns = (req, res) => {
                         user_level: result[0].user_level,
                         phone: result[0].phone,
                         profile_img: result[0].profile_img,
+                        depth: result[0].depth,
                         type: typeNum
                     },
                         jwtSecret,
@@ -468,6 +454,84 @@ const editMyInfo = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+const getUserMoney = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0)
+        if (!decode && decode?.user_level < 40) {
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
+        const { pk } = req.query;
+        let result_list = [];
+
+        let sql_list = [
+            { table: "randombox", sql: `SELECT SUM(price) AS randombox FROM log_randombox_table WHERE user_pk=${pk}` },
+            { table: "star", sql: `SELECT SUM(price) AS star FROM log_star_table WHERE user_pk=${pk}` },
+            { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${pk}` },
+            { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${pk}` },
+            { table: "user", sql: `SELECT * FROM user_table WHERE pk=${pk}` },
+        ];
+        for (var i = 0; i < sql_list.length; i++) {
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        let obj = {};
+        for (var i = 0; i < (await result).length; i++) {
+            obj[(await result[i])?.table] = { ...(await result[i])?.data[0] };
+        }
+        return response(req, res, 100, "success", obj)
+    } catch (e) {
+        console.log(e)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const updateUserMoneyByManager = async (req, res) => {//관리자가 유저 포인트 변동 시
+    try {
+        const decode = checkLevel(req.cookies.token, 40)
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
+        await db.beginTransaction();
+        console.log(req.body)
+        let { pk, reason_correction, manager_note, edit_list } = req.body;
+        if (edit_list?.length > 0) {
+            for (var i = 0; i < edit_list?.length; i++) {
+                let result = await insertQuery(`INSERT INTO log_${edit_list[i]?.type}_table (price, user_pk, type, note) VALUES (?, ?, ?, ?)`,
+                    [edit_list[i]?.price, pk, 5, edit_list[i]?.note])
+            }
+            await db.commit();
+            return response(req, res, 100, "success1", []);
+        } else {
+            await db.commit();
+            return response(req, res, 100, "success2", []);
+        }
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const onDailyPoint = (req, res) => {//관리자가 데일리포인트 발생시
+
+}
+const addActiveUserMoney = (req, res) => {//유저가 포인트 변동시 -> 아울렛쇼핑, 쿠폰쇼핑, 선물, 
+
+}
+const changeActiveUserMoney = (req, res) => {//유저내에서 포인트변동시
+
+}
+const updateUserMoney = (req, res) => {
+    try {
+
+    } catch (e) {
+        console.log(e)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
 const onResign = (req, res) => {
     try {
         let { id } = req.body;
@@ -595,7 +659,7 @@ const checkExistId = (req, res) => {
         const decode = checkLevel(req.cookies.token, 40)
         const id = req.body.id;
         const is_get_user_info = req.body.is_get_user_info;
-        if(!decode && is_get_user_info){
+        if (!decode && is_get_user_info) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
         db.query(`SELECT * FROM user_table WHERE id=? `, [id], (err, result) => {
@@ -603,20 +667,20 @@ const checkExistId = (req, res) => {
                 console.log(err)
                 return response(req, res, -200, "서버 에러 발생", [])
             } else {
-                if(is_get_user_info){
+                if (is_get_user_info) {
                     if (result.length > 0) {
                         return response(req, res, 100, "success", result[0]);
                     } else {
                         return response(req, res, -100, "존재하지 않은 판매자 아이디입니다.", []);
                     }
-                }else{
+                } else {
                     if (result.length > 0) {
                         return response(req, res, -50, "이미 사용중인 아이디입니다.", []);
                     } else {
                         return response(req, res, 100, "사용가능한 아이디입니다.", []);
                     }
                 }
-                
+
             }
         })
 
@@ -766,7 +830,7 @@ const getUsers = (req, res) => {
 
 const updateUser = async (req, res) => {
     try {
-        let {id,pw,name,nickname,phone,user_level,payment_pw,zip_code,address,address_detail,bank_name,account_number,account_name} = req.body;
+        let { id, pw, name, nickname, phone, user_level, payment_pw, zip_code, address, address_detail, bank_name, account_number, account_name } = req.body;
 
         const pk = req.body.pk ?? 0;
         if (pw) {
@@ -999,7 +1063,7 @@ const updateChannel = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const queryPromise = (table, sql) => {
+const queryPromise = (table, sql, type) => {
 
     return new Promise(async (resolve, reject) => {
         await db.query(sql, (err, result, fields) => {
@@ -1012,9 +1076,16 @@ const queryPromise = (table, sql) => {
                     table: table
                 })
             } else {
+                let type_ = type??'list';
+                let result_ = undefined;
+                if(type_=='obj'){
+                    result_ = {...result[0]};
+                }else{
+                    result_ = [...result];
+                }
                 resolve({
                     code: 200,
-                    data: result,
+                    data: result_,
                     table: table
                 })
             }
@@ -1026,50 +1097,103 @@ const makeHash = (pw) => {
     return new Promise(async (resolve, reject) => {
         await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
             // bcrypt.hash(pw, salt, async (err, hash) => {
-                let hash = decoded.toString('base64');
-                if (err) {
-                    reject({
-                        code: -200,
-                        data: undefined,
-                    })
-                } else {
-                    resolve({
-                        code: 200,
-                        data: hash,
-                    })
-                }
+            let hash = decoded.toString('base64');
+            if (err) {
+                reject({
+                    code: -200,
+                    data: undefined,
+                })
+            } else {
+                resolve({
+                    code: 200,
+                    data: hash,
+                })
+            }
         })
     })
+}
+const getGenealogy = (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        let pk = decode.pk;
+        db.query("SELECT * FROM user_table", (err, result) => {
+            if (err) {
+                console.log(err)
+                return response(req, res, -200, "서버 에러 발생", [])
+            } else {
+                let list = [...result];
+                let pk_idx_obj = {};
+                for (var i = 0; i < list.length; i++) {
+                    pk_idx_obj[list[i].pk] = i;
+                }
+                let depth_list = [];
+                for (var i = 0; i < 100; i++) {
+                    depth_list[i] = {};
+                }
+                if (decode.user_level < 40) {//유저가 불러올 때
+                    depth_list[decode?.depth + 1][`${decode?.pk}`] = [];
+                    list = list.sort(function (a, b) {
+                        return a.depth - b.depth;
+                    })
+                    for (var i = 0; i < list.length; i++) {
+                        if (depth_list[list[i]?.depth][list[i]?.parent_pk] && list[i]?.depth) {
+                            depth_list[list[i]?.depth][list[i]?.parent_pk].push(list[i]);
+                            depth_list[list[i]?.depth + 1][`${list[i]?.pk}`] = [];
+                        }
+                    }
+                    depth_list[decode?.depth][`${decode?.parent_pk}`] = [{ ...decode }];
+                } else {//관리자가 불러올 때
+                    for (var i = 0; i < list.length; i++) {
+                        if (!depth_list[list[i]?.depth][`${list[i]?.parent_pk}`]) {
+                            depth_list[list[i]?.depth][`${list[i]?.parent_pk}`] = [];
+                        }
+                        depth_list[list[i]?.depth][`${list[i]?.parent_pk}`].push(list[i]);
+                        depth_list[list[i]?.depth + 1][`${list[i]?.pk}`] = [];
+                    }
+                }
+                return response(req, res, 100, "success", { data: depth_list, mine: decode });
+            }
+        })
+    } catch (err) {
+
+    }
 }
 const getHomeContent = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0);
-        if(!decode){
+        if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
         console.log(decode)
         let result_list = [];
 
         let sql_list = [
-           // {table:"randombox",sql:""},
-          //  {table:"star",sql:""},
-           // {table:"point",sql:""},
-           {table:"user",sql:"SELECT id, parent_pk, parent_id, name, nickname, profile_img FROM user_table"},
-           {table:"notice",sql:"SELECT * FROM notice_table WHERE status=1 ORDER BY sort DESC LIMIT 0, 3"},
+            // {table:"randombox",sql:""},
+            //  {table:"star",sql:""},
+            // {table:"point",sql:""},
+            { table: "user", sql: "SELECT id, parent_pk, parent_id, name, nickname, profile_img FROM user_table",type:'obj' },
+            { table: "notice", sql: "SELECT * FROM notice_table WHERE status=1 ORDER BY sort DESC LIMIT 0, 3",type:'list' },
+            { table: "randombox", sql: `SELECT SUM(price) AS randombox FROM log_randombox_table WHERE user_pk=${decode.pk}`,type:'obj' },
+            { table: "star", sql: `SELECT SUM(price) AS star FROM log_star_table WHERE user_pk=${decode.pk}`,type:'obj' },
+            { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${decode.pk}`,type:'obj' },
+            { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${decode.pk}`,type:'obj' },
         ];
-
+        
         for (var i = 0; i < sql_list.length; i++) {
-            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
         }
         for (var i = 0; i < result_list.length; i++) {
             await result_list[i];
         }
         let result = (await when(result_list));
         let obj = {};
-        for(var i = 0;i<(await result).length;i++){
-            obj[(await result[i])?.table] = [...(await result[i])?.data];
+        for (var i = 0; i < (await result).length; i++) {
+            obj[(await result[i])?.table] = (await result[i])?.data;
         }
-        obj['auth'] = {...decode};
+        obj['auth'] = { ...decode };
         return response(req, res, 100, "success", obj)
 
     } catch (err) {
@@ -1318,7 +1442,7 @@ const getKoreaByEng = (str) => {
 const addItem = (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 40);
-        if(!decode){
+        if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
         let body = { ...req.body };
@@ -1372,7 +1496,7 @@ const addItem = (req, res) => {
 const updateItem = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 40);
-        if(!decode){
+        if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
         let body = { ...req.body };
@@ -1386,12 +1510,12 @@ const updateItem = async (req, res) => {
         let keys = Object.keys(body);
         let values = [];
         let values_str = "";
-        if(req.body.hash_list && req.body.hash_list?.length>0){
-            for(var i = 0; i < req.body.hash_list?.length;i++){
+        if (req.body.hash_list && req.body.hash_list?.length > 0) {
+            for (var i = 0; i < req.body.hash_list?.length; i++) {
                 let hash_result = await makeHash(body[req.body.hash_list[i]]);
-                if(!hash_result){
+                if (!hash_result) {
                     return response(req, res, -100, "fail", [])
-                }else{
+                } else {
                     body[req.body.hash_list[i]] = hash_result?.data;
                 }
             }
@@ -1417,10 +1541,10 @@ const updateItem = async (req, res) => {
         let table = req.body.table;
         let sql = `UPDATE ${table}_table SET ${keys.join("=?,")}=? WHERE pk=?`;
         values.push(req.body.pk);
-        db.beginTransaction((err)=>{
-            if(err){
+        db.beginTransaction((err) => {
+            if (err) {
                 return response(req, res, -200, "서버 에러 발생", [])
-            }else{
+            } else {
                 db.query(sql, values, async (err, result) => {
                     if (err) {
                         console.log(err)
@@ -1433,7 +1557,7 @@ const updateItem = async (req, res) => {
                 })
             }
         })
-       
+
     } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
@@ -1843,7 +1967,11 @@ const getOneEvent = (req, res) => {
 }
 const getItems = (req, res) => {
     try {
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword,keyword_columns, limit, page, page_cut, order } = (req.query.table?{...req.query}:undefined) || (req.body.table?{...req.body}:undefined);
+        const decode = checkLevel(req.cookies.token, 0);
+        if(!decode){
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, keyword_columns, limit, page, page_cut, order } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
 
@@ -1869,25 +1997,32 @@ const getItems = (req, res) => {
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
-       
-        if(table == 'coupon'){
+
+        if (table == 'coupon') {
             sql = "SELECT coupon_table.*, (price - sell_price) AS discount_price ,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
             sql += " coupon_table LEFT JOIN coupon_category_table ON coupon_table.category_pk=coupon_category_table.pk ";
             sql += "  LEFT JOIN coupon_brand_table ON coupon_table.brand_pk=coupon_brand_table.pk ";
         }
-        if(table == 'outlet'){
+        if (table == 'outlet') {
             sql = "SELECT outlet_table.*, outlet_category_table.name AS category_name,outlet_brand_table.name AS brand_name from ";
             sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
         }
-        if(table=='log_manager_action'){
-            sql = "SELECT log_manager_action_table.*, user_table.name AS user_name FROM ";
+        if (table == 'log_manager_action') {
+            sql = "SELECT log_manager_action_table.*, user_table.id AS user_id, user_table.name AS user_name FROM ";
             sql += " log_manager_action_table LEFT JOIN user_table ON log_manager_action_table.user_pk=user_table.pk ";
+        }
+        if(table == 'log_star' || table == 'log_point'|| table == 'log_randombox'|| table == 'log_esgw'){
+            sql = `SELECT ${table}_table.*, user_table.id AS user_id, user_table.name AS user_name FROM `;
+            sql += ` ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk=user_table.pk`;
+            if(decode.user_level<40){
+                whereStr += `AND user_pk=${decode.pk}`
+            }
         }
         if (keyword) {
             whereStr += " AND (";
-            for(var i = 0;i<keyword_columns.length;i++){
-                whereStr += ` ${i!=0?'OR':''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
+            for (var i = 0; i < keyword_columns.length; i++) {
+                whereStr += ` ${i != 0 ? 'OR' : ''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
             }
             whereStr += ")";
         }
@@ -2169,9 +2304,9 @@ const updateDailyPercent = (req, res) => {
 }
 
 module.exports = {
-    onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
-    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables,//select
-    addMaster, onSignUp, addOneWord, addOneEvent, addItem, addIssueCategory, addNoteImage, addVideo, addSetting, addChannel, addFeatureCategory, addNotice, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent,//update
-    deleteItem, onResign,
+    onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
+    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
+    addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager,//update
+    deleteItem,
 };

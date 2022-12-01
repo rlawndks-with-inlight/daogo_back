@@ -280,7 +280,7 @@ async function response(req, res, code, message, data) {
     if (code < 0 || req.originalUrl.includes('login')) {
         //logRequestResponse(req, resDict);
     }
-    if (req?.body?.manager_note&&code > 0) {
+    if (req?.body?.manager_note && code > 0) {
         const decode = checkLevel(req.cookies.token, 40);
         await logManagerAction(req,resDict,{
             user_pk:decode.pk??-1, 

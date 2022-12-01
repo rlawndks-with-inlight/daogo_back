@@ -2,14 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { upload } = require('../config/multerConfig')
 const {
-    onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile, onLoginBySns,//auth
-    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getChannelList, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables,//select
-    addMaster, onSignUp, addOneWord, addOneEvent, addItem, addIssueCategory, addNoteImage, addVideo, addSetting, addChannel, addFeatureCategory, addNotice, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateIssueCategory, updateVideo, updateMaster, updateSetting, updateStatus, updateChannel, updateFeatureCategory, updateNotice, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent,//update
-    deleteItem, onResign,
+    onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
+    getUsers, getOneWord, getOneEvent, getItems, getItem, getHomeContent, getSetting, getVideoContent, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getCountNotReadNoti, getNoticeAndAlarmLastPk, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
+    addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager,//update
+    deleteItem,
 } = require('./api')
-router.get('/getdailypercent', getDailyPercent);
-router.post('/updatedailypercent', updateDailyPercent);
+
 router.post('/addalarm', addAlarm);
 router.post('/updatealarm', updateAlarm);
 router.post('/editmyinfo', editMyInfo);
@@ -24,34 +23,39 @@ router.post('/changepassword', changePassword);
 router.post('/adduser', onSignUp);
 router.post('/addmaster', upload.fields([{ name: 'master' }, { name: 'channel' }]), addMaster);
 router.post('/updatemaster', upload.fields([{ name: 'master' }, { name: 'channel' }]), updateMaster);
-router.post('/addchannel', upload.single('channel'), addChannel);
-router.post('/updatechannel', upload.single('channel'), updateChannel);
-router.get('/getchannel', getChannelList);
+//router.post('/addchannel', upload.single('channel'), addChannel);
+//router.post('/updatechannel', upload.single('channel'), updateChannel);
+//router.get('/getchannel', getChannelList);
 router.post('/loginbyid', onLoginById);
-router.post('/loginbysns', onLoginBySns);
+//router.post('/loginbysns', onLoginBySns);
 router.post('/logout', onLogout);
-router.get('/auth', getUserToken);
 router.get('/users', getUsers);
-router.post('/addoneword', upload.single('content'), addOneWord);
-router.post('/addoneevent', upload.single('content'), addOneEvent);
+//router.post('/addoneword', upload.single('content'), addOneWord);
+//router.post('/addoneevent', upload.single('content'), addOneEvent);
 
+router.get('/auth', getUserToken);
 router.post('/additem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), addItem);
 router.post('/updateitem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), updateItem);
 router.post('/deleteitem', deleteItem);
 router.post('/getalldatabytables', getAllDataByTables);
-
-
-router.post('/addvideo', addVideo);
-router.post('/updatevideo', updateVideo);
-router.post('/addnotice', addNotice);
-router.post('/updatenotice', updateNotice);
-router.post('/addissuecategory', upload.single('content'), addIssueCategory);
-router.post('/updateissuecategory', upload.single('content'), updateIssueCategory);
-router.post('/addfeaturecategory', upload.single('content'), addFeatureCategory);
-router.post('/updatefeaturecategory', upload.single('content'), updateFeatureCategory);
-router.post('/addimage', upload.single('note'), addNoteImage);
-router.post('/resign', onResign);
+router.post('/getgenealogy', getGenealogy);
+router.get('/getusermoney', getUserMoney);
 router.post('/updateuser', upload.single('profile'), updateUser);
+router.get('/getdailypercent', getDailyPercent);
+router.post('/updatedailypercent', updateDailyPercent);
+router.post('/updateusermoneybymanager', updateUserMoneyByManager);
+
+
+//router.post('/addvideo', addVideo);
+//router.post('/updatevideo', updateVideo);
+//router.post('/addnotice', addNotice);
+//router.post('/updatenotice', updateNotice);
+//router.post('/addissuecategory', upload.single('content'), addIssueCategory);
+//router.post('/updateissuecategory', upload.single('content'), updateIssueCategory);
+//router.post('/addfeaturecategory', upload.single('content'), addFeatureCategory);
+//router.post('/updatefeaturecategory', upload.single('content'), updateFeatureCategory);
+router.post('/addimage', upload.single('note'), addNoteImage);
+//router.post('/resign', onResign);
 router.get('/onsearchallitem', onSearchAllItem);
 router.get('/oneword', getOneWord);
 router.get('/oneevent', getOneEvent);
