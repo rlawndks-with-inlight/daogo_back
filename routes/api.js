@@ -245,7 +245,7 @@ const onLoginById = async (req, res) => {
                         // bcrypt.hash(pw, salt, async (err, hash) => {
                         let hash = decoded.toString('base64');
                         if (hash == result1[0].pw) {
-                            
+
                             try {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
@@ -276,11 +276,11 @@ const onLoginById = async (req, res) => {
                                 let is_user_lottery_today = await dbQueryList(`SELECT * FROM log_randombox_table WHERE DATE_FORMAT(date,'%Y-%m-%d') = '${returnMoment().substring(0, 10)}' AND user_pk=${result1[0].pk} AND type=7`)
                                 if (is_user_lottery_today?.result?.length > 0) {
                                     is_user_lottery_today = true;
-                                }else{
+                                } else {
                                     is_user_lottery_today = false;
                                 }
-                                return response(req, res, 200, result1[0].name + ' 님 환영합니다.', {user:result1[0],is_user_lottery_today:is_user_lottery_today});
-                            
+                                return response(req, res, 200, result1[0].name + ' 님 환영합니다.', { user: result1[0], is_user_lottery_today: is_user_lottery_today });
+
                             } catch (e) {
                                 console.log(e)
                                 return response(req, res, -200, "서버 에러 발생", [])
@@ -467,7 +467,7 @@ const getUserMoney = async (req, res) => {
             { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${pk}` },
             { table: "user", sql: `SELECT * FROM user_table WHERE pk=${pk}` },
         ];
-        if(req?.query?.type=='subscriptiondeposit'){
+        if (req?.query?.type == 'subscriptiondeposit') {
             sql_list.push({ table: "star_subscription_deposit", sql: `SELECT SUM(price) AS star_subscription_deposit FROM log_star_table WHERE user_pk=${pk} AND type=8 ` })
             sql_list.push({ table: "point_subscription_deposit", sql: `SELECT SUM(price) AS point_subscription_deposit FROM log_point_table WHERE user_pk=${pk} AND type=8 ` })
             sql_list.push({ table: "esgw_subscription_deposit", sql: `SELECT SUM(price) AS esgw_subscription_deposit FROM log_esgw_table WHERE user_pk=${pk} AND type=8 ` })
@@ -640,34 +640,34 @@ const onGift = async (req, res) => {//선물
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let {receiver_id, receiver_phone, send_star, send_point, payment_pw} = req.body;
+        let { receiver_id, receiver_phone, send_star, send_point, payment_pw } = req.body;
         let receiver_user = await dbQueryList(`SELECT * FROM user_table WHERE id='${receiver_id}'`);
-        receiver_user = receiver_user?.result[0]??{};
+        receiver_user = receiver_user?.result[0] ?? {};
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
         let insert_payment_pw = await makeHash(payment_pw);
         if (insert_payment_pw?.data !== user?.payment_pw) {
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
-        if(receiver_user?.pk==decode?.pk){
+        if (receiver_user?.pk == decode?.pk) {
             return response(req, res, -100, "자기 자신에게 선물을 줄 수 없습니다.", []);
         }
         console.log(receiver_phone)
-        console.log(receiver_user?.phone.substring(receiver_user?.phone.length-4, receiver_user?.phone.length))
-        if(receiver_phone!==receiver_user?.phone.substring(receiver_user?.phone.length-4, receiver_user?.phone.length)){
+        console.log(receiver_user?.phone.substring(receiver_user?.phone.length - 4, receiver_user?.phone.length))
+        if (receiver_phone !== receiver_user?.phone.substring(receiver_user?.phone.length - 4, receiver_user?.phone.length)) {
             return response(req, res, -100, "받는사람 휴대폰 마지막 4자리가 틀렸습니다.", []);
         }
-        if((send_star < 0 && send_star) || (send_point < 0 && send_point)){
+        if ((send_star < 0 && send_star) || (send_point < 0 && send_point)) {
             return response(req, res, -100, "0 이상의 숫자를 입력해주세요.", []);
         }
         let log_list = [];
-        if(send_star&&send_star>0){
-            log_list.push({ table: 'star', price: send_star * (-1), user_pk: decode?.pk, type: 3 ,explain_obj:JSON.stringify({user_pk:receiver_user?.pk,user_id:receiver_user?.id,user_name:receiver_user?.name})})
-            log_list.push({ table: 'star', price: send_star, user_pk: receiver_user?.pk, type: 3, explain_obj:JSON.stringify({user_pk:decode?.pk,user_id:decode?.id,user_name:decode?.name}) })
+        if (send_star && send_star > 0) {
+            log_list.push({ table: 'star', price: send_star * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
+            log_list.push({ table: 'star', price: send_star, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
-        if(send_point&&send_point>0){
-            log_list.push({ table: 'point', price: send_point * (-1), user_pk: decode?.pk, type: 3 ,explain_obj:JSON.stringify({user_pk:receiver_user?.pk,user_id:receiver_user?.id,user_name:receiver_user?.name})})
-            log_list.push({ table: 'point', price: send_point, user_pk: receiver_user?.pk, type: 3, explain_obj:JSON.stringify({user_pk:decode?.pk,user_id:decode?.id,user_name:decode?.name}) })
+        if (send_point && send_point > 0) {
+            log_list.push({ table: 'point', price: send_point * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
+            log_list.push({ table: 'point', price: send_point, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -700,6 +700,9 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         if (star < 1) {
             return response(req, res, -100, "스타는 1 이상의 금액부터 등록 가능합니다.", []);
         }
+        if (star % 100 != 0) {
+            return response(req, res, -100, "스타는 100 단위 금액만 등록 가능합니다.", []);
+        }
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
         let insert_payment_pw = await makeHash(payment_pw);
@@ -731,8 +734,8 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
 
     }
 }
-const requestWithdraw = async (req, res) =>{//출금신청
-    try{
+const requestWithdraw = async (req, res) => {//출금신청
+    try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
@@ -740,6 +743,9 @@ const requestWithdraw = async (req, res) =>{//출금신청
         let { star, payment_pw } = req.body;
         if (star < 500) {
             return response(req, res, -100, "스타는 500 이상의 금액부터 등록 가능합니다.", []);
+        }
+        if (star % 100 != 0) {
+            return response(req, res, -100, "스타는 100 단위 금액만 등록 가능합니다.", []);
         }
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
@@ -753,7 +759,7 @@ const requestWithdraw = async (req, res) =>{//출금신청
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({status:0})])//0-출금전, 1-출금완료
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0 })])//0-출금전, 1-출금완료
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -763,7 +769,7 @@ const requestWithdraw = async (req, res) =>{//출금신청
         }
         await db.commit();
         return response(req, res, 100, "success", []);
-    }catch (err) {
+    } catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -771,8 +777,8 @@ const requestWithdraw = async (req, res) =>{//출금신청
 
     }
 }
-const buyESGWPoint = async (req, res) =>{//esgw 포인트 등록
-    try{
+const buyESGWPoint = async (req, res) => {//esgw 포인트 등록
+    try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
@@ -789,7 +795,7 @@ const buyESGWPoint = async (req, res) =>{//esgw 포인트 등록
         }
         let log_list = [
             { table: 'point', price: point * (-1), user_pk: decode?.pk, type: 9 },
-            { table: 'esgw', price: point/10, user_pk: decode?.pk, type: 9 },
+            { table: 'esgw', price: point / 10, user_pk: decode?.pk, type: 9 },
         ]
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -804,7 +810,7 @@ const buyESGWPoint = async (req, res) =>{//esgw 포인트 등록
         }
         await db.commit();
         return response(req, res, 100, "success", []);
-    }catch (err) {
+    } catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -812,13 +818,13 @@ const buyESGWPoint = async (req, res) =>{//esgw 포인트 등록
 
     }
 }
-const subscriptionDeposit = async (req, res) =>{
-    try{
+const subscriptionDeposit = async (req, res) => {//청약예치금 등록
+    try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let {star, point, esgw, payment_pw } = req.body;
+        let { star, point, esgw, payment_pw } = req.body;
         console.log(req.body)
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
@@ -836,13 +842,13 @@ const subscriptionDeposit = async (req, res) =>{
             return response(req, res, -100, "ESGW포인트는 1 이상의 금액부터 등록 가능합니다.", []);
         }
         let log_list = [];
-        if(star){
+        if (star) {
             log_list.push({ table: 'star', price: star * (-1), user_pk: decode?.pk, type: 8 })
         }
-        if(point){
+        if (point) {
             log_list.push({ table: 'point', price: point * (-1), user_pk: decode?.pk, type: 8 })
         }
-        if(esgw){
+        if (esgw) {
             log_list.push({ table: 'esgw', price: esgw * (-1), user_pk: decode?.pk, type: 8 })
         }
         await db.beginTransaction();
@@ -858,6 +864,17 @@ const subscriptionDeposit = async (req, res) =>{
         }
         await db.commit();
         return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const onOutletOrder = async (req, res) =>{
+    try{
+
     }catch (err) {
         console.log(err)
         await db.rollback();
@@ -1446,7 +1463,7 @@ const makeHash = (pw_) => {
 
     return new Promise(async (resolve, reject) => {
         let pw = pw_;
-        if(!(typeof pw_ == 'string')){
+        if (!(typeof pw_ == 'string')) {
             pw.toString();
         }
         await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
@@ -2070,7 +2087,7 @@ const updateFeatureCategory = (req, res) => {
     }
 }
 
-const getItem =  async (req, res) => {
+const getItem = async (req, res) => {
     try {
         let table = req.query.table ?? "user";
         let pk = req.query.pk ?? 0;
@@ -2080,8 +2097,13 @@ const getItem =  async (req, res) => {
         }
 
         let sql = `SELECT * FROM ${table}_table ` + whereStr;
-        if(req.query?.views){
-            let result = await insertQuery(`UPDATE ${table}_table SET views=views+1 WHERE pk=${pk}`,[]);
+        if (req.query?.views) {
+            let result = await insertQuery(`UPDATE ${table}_table SET views=views+1 WHERE pk=${pk}`, []);
+        }
+        if(table=='outlet'){
+            sql = "SELECT outlet_table.*, outlet_category_table.name AS category_name,outlet_brand_table.name AS brand_name from ";
+            sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
+            sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk WHERE outlet_table.pk=? ";
         }
         db.query(sql, [pk], (err, result) => {
             if (err) {
@@ -2103,88 +2125,6 @@ const getItem =  async (req, res) => {
     }
 }
 
-const addVideo = (req, res) => {
-    try {
-        const { user_pk, title, link, note, font_color, background_color, relate_video, note_align } = req.body;
-        db.query("INSERT INTO video_table (user_pk, title, link, note, font_color, background_color, note_align) VALUES (?, ?, ?, ?, ?, ?, ?)", [user_pk, title, link, note, font_color, background_color, note_align], async (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                await db.query("UPDATE video_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
-                    if (err) {
-                        console.log(err)
-                        return response(req, res, -200, "fail", [])
-                    }
-                })
-                let relate_videos = JSON.parse(relate_video)
-                if (relate_videos.length > 0) {
-                    let relate_list = [];
-                    for (var i = 0; i < relate_videos.length; i++) {
-                        relate_list[i] = [result?.insertId, relate_videos[i]];
-                    }
-                    await db.query("INSERT INTO video_relate_table (video_pk, relate_video_pk) VALUES ? ", [relate_list], async (err, result2) => {
-                        if (err) {
-                            console.log(err)
-                            return response(req, res, -200, "서버 에러 발생", [])
-                        } else {
-
-                        }
-                    })
-                } else {
-                    return response(req, res, 100, "success", [])
-                }
-            }
-        })
-    }
-    catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
-const updateVideo = (req, res) => {
-    try {
-        const { user_pk, title, link, note, font_color, background_color, relate_video, note_align, pk } = req.body;
-        db.query("UPDATE video_table SET user_pk=?, title=?, link=?, note=?, font_color=?, background_color=?, note_align=? WHERE pk=?", [user_pk, title, link, note, font_color, background_color, note_align, pk], async (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                await db.query("DELETE FROM video_relate_table WHERE video_pk=?", [pk], async (err, result1) => {
-                    if (err) {
-                        console.log(err)
-                        return response(req, res, -200, "서버 에러 발생", [])
-                    } else {
-                        let relate_videos = JSON.parse(relate_video)
-                        if (relate_videos.length > 0) {
-                            let relate_list = [];
-                            for (var i = 0; i < relate_videos.length; i++) {
-                                relate_list[i] = [pk, relate_videos[i]];
-                            }
-                            await db.query("INSERT INTO video_relate_table (video_pk, relate_video_pk) VALUES ? ", [relate_list], (err, result2) => {
-                                if (err) {
-                                    console.log(err)
-                                    return response(req, res, -200, "서버 에러 발생", [])
-                                } else {
-                                    return response(req, res, 100, "success", [])
-                                }
-                            })
-                        } else {
-                            return response(req, res, 100, "success", [])
-                        }
-
-                    }
-                })
-
-            }
-        })
-    }
-    catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
-
 const addNoteImage = (req, res) => {
     try {
         if (req.file) {
@@ -2194,60 +2134,6 @@ const addNoteImage = (req, res) => {
         }
     }
     catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
-const onSearchAllItem = (req, res) => {
-    try {
-        let keyword = req.query.keyword;
-        let sql = `SELECT pk, title, `
-        db.query(`SELECT pk, title, hash FROM oneword_table WHERE status=1 AND (title LIKE "%${keyword}%" OR hash LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result1) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                await db.query(`SELECT pk, title, hash FROM oneevent_table WHERE status=1 AND (title LIKE "%${keyword}%" OR hash LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result2) => {
-                    if (err) {
-                        console.log(err)
-                        return response(req, res, -200, "서버 에러 발생", [])
-                    } else {
-                        await db.query(`SELECT pk, title, hash, main_img, font_color, background_color, date FROM issue_table WHERE status=1 AND (title LIKE "%${keyword}%" OR hash LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result3) => {
-                            if (err) {
-                                console.log(err)
-                                return response(req, res, -200, "서버 에러 발생", [])
-                            } else {
-                                await db.query(`SELECT pk, title, hash, main_img, font_color, background_color, date FROM feature_table WHERE status=1 AND (title LIKE "%${keyword}%" OR hash LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result4) => {
-                                    if (err) {
-                                        console.log(err)
-                                        return response(req, res, -200, "서버 에러 발생", [])
-                                    } else {
-                                        await db.query(`SELECT pk, title, hash, main_img, font_color, background_color, date FROM theme_table WHERE status=1 AND (title LIKE "%${keyword}%" OR hash LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result5) => {
-                                            if (err) {
-                                                console.log(err)
-                                                return response(req, res, -200, "서버 에러 발생", [])
-                                            } else {
-                                                await db.query(`SELECT pk, title, font_color, background_color, link FROM video_table WHERE status=1 AND (title LIKE "%${keyword}%" OR note LIKE "%${keyword}%") ORDER BY sort DESC LIMIT 8`, async (err, result6) => {
-                                                    if (err) {
-                                                        console.log(err)
-                                                        return response(req, res, -200, "서버 에러 발생", [])
-                                                    } else {
-                                                        return response(req, res, 100, "success", { oneWord: result1, oneEvent: result2, issues: result3, features: result4, themes: result5, videos: result6 });
-                                                    }
-                                                })
-                                            }
-                                        })
-                                    }
-                                })
-
-                            }
-                        })
-                    }
-                })
-            }
-        })
-
-    } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
@@ -2308,7 +2194,7 @@ const getItems = (req, res) => {
                 whereStr += `AND user_pk=${decode.pk}`;
             }
         }
-        if(table=='log_withdraw'){
+        if (table == 'log_withdraw') {
             sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name FROM ";
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             whereStr += ` AND log_star_table.type=4 `;
@@ -2537,9 +2423,9 @@ const updateDailyPercent = (req, res) => {
 
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder
 };

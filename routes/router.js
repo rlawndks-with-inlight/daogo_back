@@ -3,11 +3,11 @@ const router = express.Router();
 const { upload } = require('../config/multerConfig')
 const {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, onSearchAllItem, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder
 } = require('./api')
 
 router.post('/addalarm', addAlarm);
@@ -50,6 +50,7 @@ router.post('/ongift', onGift);
 router.post('/requestWithdraw', requestWithdraw);
 router.post('/buyesgwpoint', buyESGWPoint);
 router.post('/subscriptiondeposit', subscriptionDeposit);
+router.post('/onoutletorder', onOutletOrder);
 
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
@@ -61,7 +62,6 @@ router.post('/subscriptiondeposit', subscriptionDeposit);
 //router.post('/updatefeaturecategory', upload.single('content'), updateFeatureCategory);
 router.post('/addimage', upload.single('note'), addNoteImage);
 //router.post('/resign', onResign);
-router.get('/onsearchallitem', onSearchAllItem);
 //router.get('/oneword', getOneWord);
 //router.get('/oneevent', getOneEvent);
 router.get('/items', getItems);
