@@ -28,7 +28,7 @@ app.use(cookieParser());
 const schedule = require('node-schedule');
 
 const path = require('path');
-const { insertQuery } = require('./query-util')
+const { insertQuery, dbQueryList } = require('./query-util')
 app.set('/routes', __dirname + '/routes');
 app.use('/config', express.static(__dirname + '/config'));
 //app.use('/image', express.static('./upload'));
@@ -46,7 +46,8 @@ const HTTPS_PORT = 8443;
 
 if (is_test) {
         http.createServer(app).listen(HTTP_PORT, function () {
-                console.log("Server on " + HTTP_PORT)
+                console.log("Server on " + HTTP_PORT);
+                scheduleDaily();
         });
 
 } else {
@@ -57,15 +58,37 @@ if (is_test) {
         };
         https.createServer(options, app).listen(HTTPS_PORT, function () {
                 console.log("Server on " + HTTPS_PORT);
+                scheduleDaily();
         });
 
 }
 
-
+console.log(returnMoment().substring(11, 16))
 // Default route for server status
 app.get('/', (req, res) => {
         res.json({ message: `Server is running on port ${req.secure ? HTTPS_PORT : HTTP_PORT}` });
 });
-
-
-//https.createServer(options, app).listen(HTTPS_PORT);
+const scheduleDaily = () => {
+        schedule.scheduleJob('0 0/1 * * * *', async function () {
+                let daily_data = await dbQueryList(`SELECT * FROM daily_percentage_table ORDER BY pk DESC LIMIT 1`);
+                daily_data = daily_data?.result[0];
+                let log_daily_initialization = await dbQueryList(`SELECT * FROM log_daily_initialization_table ORDER BY pk DESC LIMIT 1`);
+                log_daily_initialization = log_daily_initialization?.result[0];
+                if (returnMoment().substring(11, 16) == daily_data?.randombox_initialization_time) {
+                        let user_list = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk NOT IN (SELECT user_pk AS pk FROM log_star_table WHERE TYPE=7 AND TIMESTAMPDIFF(second,'2022-12-07 00:00',date) > -86400) AND user_level=0`);
+                        user_list = user_list?.result;
+                        let user_count = user_list.length;
+                        for (var i = 0; i < user_list.length; i++) {
+                                if (user_list[i]?.sum_randombox ?? 0 >= daily_data?.daily_deduction_point) {
+                                        await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [daily_data?.daily_deduction_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
+                                } else {
+                                        if (user_list[i]?.sum_randombox ?? 0 == 0) {
+                                        } else {
+                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [user_list[i]?.sum_randombox * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
+                                        }
+                                }
+                        }
+                        await insertQuery(`INSERT INTO log_daily_initialization_table (user_count) VALUES (?)`, [user_count]);
+                }
+        })
+}

@@ -7,7 +7,7 @@ const {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 } = require('./api')
 
 router.post('/addalarm', addAlarm);
@@ -51,6 +51,7 @@ router.post('/requestWithdraw', requestWithdraw);
 router.post('/buyesgwpoint', buyESGWPoint);
 router.post('/subscriptiondeposit', subscriptionDeposit);
 router.post('/onoutletorder', onOutletOrder);
+router.post('/addmarketing', addMarketing);
 
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);

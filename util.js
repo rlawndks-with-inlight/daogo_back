@@ -5,7 +5,7 @@ const jwtSecret = "djfudnsqlalfKeyFmfRkwu"
 const firebase = require("firebase-admin");
 const fcmNode = require("fcm-node");
 const serviceAccount = require("./config/privatekey_firebase.json");
-const { insertQuery } = require('./query-util');
+const { insertQuery, dbQueryList } = require('./query-util');
 const firebaseToken = 'fV0vRpDpTfCnY_VggFEgN7:APA91bHdHP6ilBpe9Wos5Y72SXFka2uAM3luANewGuw7Bx2XGnvUNjK5e5k945xwcXpW8NNei3LEaBtKT2_2A6naix8Wg5heVik8O2Aop_fu8bUibnGxuCe3RLQDtHNrMeC5gmgGRoVh';
 const fcmServerKey = "AAAA35TttWk:APA91bGLGZjdD2fgaPRh8eYyu9CDSndD97ZdO4MBypbpICClEwMADAJnt2giOaCWRvMldof5DkplMptbmyN0Fm0Q975dm-CD7i0XhrHzjgMN0EKfXHxLy4NyohEVXDHW5DBfYrlncvQh";
 firebase.initializeApp({
@@ -130,7 +130,6 @@ const logRequestResponse = (req, res) => {
         file: req.file || req.files || null
     }
     request = JSON.stringify(request)
-    console.log(res)
     let response = JSON.stringify(res)
     // console.log(request)
     console.log(response)
@@ -271,7 +270,24 @@ function getSQLnParams(query, params, colNames) {
     }
     return { sql, param: returnParams }
 }
-
+const updateUserTier = async (pk_) =>{
+    let pk = pk_;
+    let up_point_list = [0, 9000,30000,90000,150000,300000];//상향 랜덤박스 포인트
+    let down_point_list = [0, 3600,12000,36000,60000,120000];//하향 랜덤박스 포인트
+    let user = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk=${pk}`);
+    user = user?.result[0];
+    console.log(user)
+    let randombox_point = user?.sum_randombox??0;
+    let user_tier = user?.tier??0;
+    for(var i =0;i<=5;i++){
+        if(randombox_point>=up_point_list[i] && user_tier/5 < i){
+            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
+        }
+        if(randombox_point<down_point_list[i]&& user_tier/5 > i){
+            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
+        }
+    }
+}
 async function response(req, res, code, message, data) {
     var resDict = {
         'result': code,
@@ -315,5 +331,5 @@ module.exports = {
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams,
-    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm
+    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier
 }

@@ -4,8 +4,6 @@ const dbQueryRows = (sql) => {
     return new Promise((resolve, reject) => {
         db.query(sql, (err, result, fields) => {
             if (err) {
-                console.log(sql)
-                console.log(err)
                 reject({
                     code: -200,
                     maxPage: 0
@@ -24,8 +22,6 @@ const dbQueryList = (sql) => {
     return new Promise((resolve, reject) => {
         db.query(sql, (err, result, fields) => {
             if (err) {
-                console.log(sql)
-                console.log(err)
                 reject({
                     code: -200,
                     result: result
