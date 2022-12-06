@@ -164,8 +164,9 @@ const logManagerAction = (req, res, item) => {
     } catch (err) {
         requestIp = '0.0.0.0'
     }
+    requestIp = requestIp.replaceAll('::ffff:', '');
     db.query("INSERT INTO log_manager_action_table (user_pk, ip, manager_note, reason_correction) VALUES (?, ?, ?, ?)", [user_pk, requestIp, manager_note, reason_correction], (err, result) => {
-        if (err){
+        if (err) {
             console.log(err);
         } else {
         }
@@ -282,11 +283,11 @@ async function response(req, res, code, message, data) {
     }
     if (req?.body?.manager_note && code > 0) {
         const decode = checkLevel(req.cookies.token, 40);
-        await logManagerAction(req,resDict,{
-            user_pk:decode.pk??-1, 
-            manager_note:req?.body?.manager_note??"", 
-            reason_correction:req?.body?.reason_correction??""
-        } )
+        await logManagerAction(req, resDict, {
+            user_pk: decode.pk ?? -1,
+            manager_note: req?.body?.manager_note ?? "",
+            reason_correction: req?.body?.reason_correction ?? ""
+        })
     }
     res.send(resDict);
 }

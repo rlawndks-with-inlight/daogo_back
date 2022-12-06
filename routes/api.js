@@ -245,7 +245,6 @@ const onLoginById = async (req, res) => {
                         // bcrypt.hash(pw, salt, async (err, hash) => {
                         let hash = decoded.toString('base64');
                         if (hash == result1[0].pw) {
-
                             try {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
@@ -271,6 +270,7 @@ const onLoginById = async (req, res) => {
                                 } catch (err) {
                                     requestIp = '0.0.0.0'
                                 }
+                                requestIp = requestIp.replaceAll('::ffff:','');
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
                                 let is_user_lottery_today = await dbQueryList(`SELECT * FROM log_randombox_table WHERE DATE_FORMAT(date,'%Y-%m-%d') = '${returnMoment().substring(0, 10)}' AND user_pk=${result1[0].pk} AND type=7`)
@@ -652,8 +652,6 @@ const onGift = async (req, res) => {//선물
         if (receiver_user?.pk == decode?.pk) {
             return response(req, res, -100, "자기 자신에게 선물을 줄 수 없습니다.", []);
         }
-        console.log(receiver_phone)
-        console.log(receiver_user?.phone.substring(receiver_user?.phone.length - 4, receiver_user?.phone.length))
         if (receiver_phone !== receiver_user?.phone.substring(receiver_user?.phone.length - 4, receiver_user?.phone.length)) {
             return response(req, res, -100, "받는사람 휴대폰 마지막 4자리가 틀렸습니다.", []);
         }
@@ -663,11 +661,11 @@ const onGift = async (req, res) => {//선물
         let log_list = [];
         if (send_star && send_star > 0) {
             log_list.push({ table: 'star', price: send_star * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
-            log_list.push({ table: 'star', price: send_star, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+            log_list.push({ table: 'star', price: send_star*(97/100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         if (send_point && send_point > 0) {
             log_list.push({ table: 'point', price: send_point * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
-            log_list.push({ table: 'point', price: send_point, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+            log_list.push({ table: 'point', price: send_point*(97/100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -2193,6 +2191,12 @@ const getItems = (req, res) => {
             if (decode.user_level < 40) {
                 whereStr += `AND user_pk=${decode.pk}`;
             }
+        }
+        if(table=='exchange'){
+            pageSql = 'SELECT COUNT(*) FROM log_star_table ';
+            sql = `SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, user_table.bank_name, user_table.account_number, user_table.account_name FROM `;
+            sql += ` log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk`;
+            whereStr += `AND log_star_table.type=4`;
         }
         if (table == 'log_withdraw') {
             sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name FROM ";
