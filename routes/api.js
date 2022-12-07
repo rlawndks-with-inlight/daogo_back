@@ -158,14 +158,16 @@ const onSignUp = async (req, res) => {
                                     console.log(err)
                                     return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                                 }
+                                let payment_pw = await makeHash('0000');
+                                payment_pw = payment_pw?.data
 
-                                sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, parent_id, parent_pk, depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, parent_id, parent_pk, depth, payment_pw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
                                 if (parent_result[0]) {
                                     depth = parent_result[0]?.depth + 1;
                                 }
-                                await db.query(sql, [id, hash, name, nickname, phone, user_level, parent_result[0]?.id ?? "", parent_result[0]?.pk ?? 0, depth], async (err, result) => {
+                                await db.query(sql, [id, hash, name, nickname, phone, user_level, parent_result[0]?.id ?? "", parent_result[0]?.pk ?? 0, depth, payment_pw], async (err, result) => {
 
-                                    if (err) {
+                                    if (err) {  
                                         console.log(err)
                                         return response(req, res, -200, "서버에러 발생", [])
                                     }
@@ -484,10 +486,10 @@ const getUserMoney = async (req, res) => {
                 obj[(await result[i])?.table] = (await result[i])?.data[0][(await result[i])?.table] ?? 0;
             }
         }
-        return response(req, res, 100, "success", obj)
+        return response(req, res, 100, "success", obj);
     } catch (e) {
         console.log(e)
-        return response(req, res, -200, "서버 에러 발생", [])
+        return response(req, res, -200, "서버 에러 발생", []);
     }
 }
 const getUserMoneyReturn = async (pk) => {
