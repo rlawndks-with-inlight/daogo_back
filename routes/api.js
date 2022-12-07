@@ -898,7 +898,6 @@ const addMarketing = async (req, res) => {
                 [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj,decode?.pk])//0-출금전, 1-출금완료
         }
         await updateUserTier(is_exist_user?.pk);
-        await updateUserTier(parent_user?.pk);
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
