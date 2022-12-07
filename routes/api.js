@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse,
-    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn
+    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -1464,35 +1464,7 @@ const updateChannel = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const queryPromise = (table, sql, type) => {
 
-    return new Promise(async (resolve, reject) => {
-        await db.query(sql, (err, result, fields) => {
-            if (err) {
-                console.log(sql)
-                console.log(err)
-                reject({
-                    code: -200,
-                    data: [],
-                    table: table
-                })
-            } else {
-                let type_ = type ?? 'list';
-                let result_ = undefined;
-                if (type_ == 'obj') {
-                    result_ = { ...result[0] };
-                } else {
-                    result_ = [...result];
-                }
-                resolve({
-                    code: 200,
-                    data: result_,
-                    table: table
-                })
-            }
-        })
-    })
-}
 const makeHash = (pw_) => {
 
     return new Promise(async (resolve, reject) => {

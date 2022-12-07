@@ -193,7 +193,35 @@ const logRequest = (req) => {
         }
     )
 }
+const queryPromise = (table, sql, type) => {
 
+    return new Promise(async (resolve, reject) => {
+        await db.query(sql, (err, result, fields) => {
+            if (err) {
+                console.log(sql)
+                console.log(err)
+                reject({
+                    code: -200,
+                    data: [],
+                    table: table
+                })
+            } else {
+                let type_ = type ?? 'list';
+                let result_ = undefined;
+                if (type_ == 'obj') {
+                    result_ = { ...result[0] };
+                } else {
+                    result_ = [...result];
+                }
+                resolve({
+                    code: 200,
+                    data: result_,
+                    table: table
+                })
+            }
+        })
+    })
+}
 const getDailyPercentReturn = async () => {
     let result_list = [];
     let sql_list = [
@@ -354,5 +382,5 @@ module.exports = {
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams,
-    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn
+    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise
 }
