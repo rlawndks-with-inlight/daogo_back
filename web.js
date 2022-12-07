@@ -60,10 +60,8 @@ if (is_test) {
                 console.log("Server on " + HTTPS_PORT);
                 scheduleDaily();
         });
-
 }
 
-console.log(returnMoment().substring(11, 16))
 // Default route for server status
 app.get('/', (req, res) => {
         res.json({ message: `Server is running on port ${req.secure ? HTTPS_PORT : HTTP_PORT}` });

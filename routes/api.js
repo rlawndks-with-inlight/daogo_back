@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse,
-    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth
+    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -584,6 +584,7 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
                 break;
             }
         }
+
         let randombox_point = (parseFloat(daily_percent?.money[idx]) * user_money?.randombox / 100);
         let log_list = [{ table: 'randombox', price: randombox_point * (-1), user_pk: decode?.pk, type: 7 },
         { table: 'point', price: (randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100, user_pk: decode?.pk, type: 7 },
@@ -690,10 +691,32 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 2 },
             { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2 }
         ]
+        let parent_user_list = await getParentUserList(decode)
+        for(var i = 0;i<parent_user_list?.length;i++){
+            if(parent_user_list[i]?.pay_user_count>=10&&(parent_user_list[i]?.depth-decode?.depth<=15)){
+                if(parent_user_list[i]?.tier>0){
+                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+                }
+            }else if(parent_user_list[i]?.pay_user_count>=5&&(parent_user_list[i]?.depth-decode?.depth<=10)){
+                if(parent_user_list[i]?.tier>0){
+                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+                }
+            }else if(parent_user_list[i]?.pay_user_count>=3&&(parent_user_list[i]?.depth-decode?.depth<=5)){
+                if(parent_user_list[i]?.tier>0){
+                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+                }
+            }else if(parent_user_list[i]?.pay_user_count>=1&&(parent_user_list[i]?.depth-decode?.depth<=2)){
+                if(parent_user_list[i]?.tier>0){
+                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+                }
+            }else{
+                
+            }
+        }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, 2, "", ""])
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", ""])
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -701,6 +724,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             await db.rollback();
             return response(req, res, -200, "유저의 금액은 마이너스가 될 수 없습니다.", []);
         }
+
         await updateUserTier(decode?.pk);
         await db.commit();
         return response(req, res, 100, "success", []);
@@ -712,6 +736,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
 
     }
 }
+
 const requestWithdraw = async (req, res) => {//출금신청
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -853,7 +878,7 @@ const subscriptionDeposit = async (req, res) => {//청약예치금 등록
     }
 }
 
-const addMarketing = async (req, res) => {
+const addMarketing = async (req, res) => {//매출등록
     try {
         const decode = checkLevel(req.cookies.token, 40);
         if (!decode) {
@@ -908,7 +933,7 @@ const addMarketing = async (req, res) => {
 
     }
 }
-const onOutletOrder = async (req, res) => {
+const onOutletOrder = async (req, res) => {//아울렛 구매
     try {
 
     } catch (err) {
@@ -919,14 +944,7 @@ const onOutletOrder = async (req, res) => {
 
     }
 }
-const updateUserMoney = (req, res) => {
-    try {
 
-    } catch (e) {
-        console.log(e)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
 const onResign = (req, res) => {
     try {
         let { id } = req.body;
@@ -1490,7 +1508,7 @@ const makeHash = (pw_) => {
         })
     })
 }
-const getGenealogyReturn = async (decode_) => {
+const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오기
     let decode = decode_;
     if (decode?.pk) {
         let result = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table`);
@@ -1504,7 +1522,7 @@ const getGenealogyReturn = async (decode_) => {
         for (var i = 0; i < max_child_depth(); i++) {
             depth_list[i] = {};
         }
-        let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`)
+        let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
         auth = auth?.result[0]
         depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
         list = list.sort(function (a, b) {
@@ -1522,17 +1540,53 @@ const getGenealogyReturn = async (decode_) => {
         return [];
     }
 }
-const getGenealogyScoreByGenealogyList = async (list_, decode_) =>{
+
+const getParentUserList = async (decode_) => {//자신위의 유저들
+    let decode = decode_;
+    if (decode?.pk) {
+        let user_tree = await getGenealogyReturn({pk:1});
+        let user_list = await dbQueryList('SELECT * FROM user_table');
+        user_list = user_list?.result;
+        let user_obj = {};
+        for(var i = 0;i<user_list.length;i++){
+            user_obj[user_list[i]?.pk] = user_list[i];
+        }
+        let parent_list = [];
+        let parent_pk = decode?.parent_pk;
+        while(1){
+            let parent_user = user_obj[parent_pk];
+            let direct_users = user_tree[parent_user?.depth+1][parent_user?.pk];
+            let pay_user_count = 0;
+            for(var i = 0;i<direct_users.length;i++){
+                if(direct_users[i]?.tier/5>0){
+                    pay_user_count++;
+                }
+            }
+            parent_user['pay_user_count'] = pay_user_count;
+            parent_list.push(parent_user);
+            if(user_obj[parent_user?.parent_pk]?.user_level!=0){
+                break;
+            }else{
+                parent_pk = parent_user?.parent_pk;
+            }            
+        }
+        return parent_list;
+    } else {
+        return [];
+    }
+}
+getParentUserList({pk:13,parent_pk:9,depth:4})
+const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적, 소실적 구하기
     let list = [...list_];
-    let decode = {...decode_};
+    let decode = { ...decode_ };
     let score_list = [];
     let genealogy_score_list = [];
-    for(var i =0;i<list[decode?.depth+1][decode?.pk].length;i++){
-        let score_list = await getGenealogyReturn(list[decode?.depth+1][decode?.pk][i]);
+    for (var i = 0; i < list[decode?.depth + 1][decode?.pk].length; i++) {
+        let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i]);
         let score = 0;
-        for(var j = 0;j<max_child_depth();j++){
-            for(var k=0;k<Object.keys(score_list[j]).length;k++){
-                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (b['tier'] || 0), 0)/5;
+        for (var j = 0; j < max_child_depth(); j++) {
+            for (var k = 0; k < Object.keys(score_list[j]).length; k++) {
+                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (b['tier'] || 0), 0) / 5;
             }
         }
         await genealogy_score_list.push(score);
@@ -1540,10 +1594,10 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) =>{
     let great = Math.max.apply(null, genealogy_score_list);
     let loss = genealogy_score_list.reduce(function add(sum, currValue) {
         return sum + currValue;
-      }, 0) - great;
+    }, 0) - great;
     return {
-        great:great,//대실적점수
-        loss:loss//소실적점수
+        great: great,//대실적점수
+        loss: loss//소실적점수
     }
 }
 const getGenealogy = (req, res) => {
@@ -2084,60 +2138,6 @@ const updateIssueCategory = (req, res) => {
         }
         zColumn.push(pk)
         db.query(`UPDATE issue_category_table SET ${columns} WHERE pk=?`, zColumn, (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", []);
-            } else {
-                return response(req, res, 100, "success", []);
-            }
-        })
-    } catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
-const addFeatureCategory = (req, res) => {
-    try {
-        const { title, sub_title } = req.body;
-        let image = "";
-        if (req.file) {
-            image = '/image/' + req.file.fieldname + '/' + req.file.filename;
-        }
-        db.query("INSERT INTO feature_category_table (title,sub_title,main_img) VALUES (?,?,?)", [title, sub_title, image], async (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", []);
-            } else {
-                await db.query("UPDATE feature_category_table SET sort=? WHERE pk=?", [result?.insertId, result?.insertId], (err, resultup) => {
-                    if (err) {
-                        console.log(err)
-                        return response(req, res, -200, "fail", [])
-                    }
-                    else {
-                        return response(req, res, 200, "success", [])
-                    }
-                })
-            }
-        })
-    } catch (err) {
-        console.log(err)
-        return response(req, res, -200, "서버 에러 발생", [])
-    }
-}
-const updateFeatureCategory = (req, res) => {
-    try {
-        const { title, sub_title, pk } = req.body;
-        let zColumn = [title, sub_title];
-        let columns = " title=?, sub_title=? ";
-
-        let image = "";
-        if (req.file) {
-            image = '/image/' + req.file.fieldname + '/' + req.file.filename;
-            zColumn.push(image);
-            columns += ', main_img=? '
-        }
-        zColumn.push(pk)
-        db.query(`UPDATE feature_category_table SET ${columns} WHERE pk=?`, zColumn, (err, result) => {
             if (err) {
                 console.log(err)
                 return response(req, res, -200, "서버 에러 발생", []);
