@@ -2227,7 +2227,15 @@ const getItems = (req, res) => {
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
-
+        if (table == 'user') {
+            sql = "SELECT * "
+            let money_categories = ['star','point','randombox','esgw'];
+            for(var i=0;i<money_categories.length;i++){
+                sql += `, (SELECT SUM(price) FROM log_${money_categories[i]}_table WHERE user_pk=user_table.pk) AS ${money_categories[i]} `
+            }
+            sql += ' FROM user_table '
+            
+        }
         if (table == 'coupon') {
             sql = "SELECT coupon_table.*, (price - sell_price) AS discount_price ,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";
             sql += " coupon_table LEFT JOIN coupon_category_table ON coupon_table.category_pk=coupon_category_table.pk ";
