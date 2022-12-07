@@ -300,7 +300,6 @@ const updateUserTier = async (pk_) =>{
     let down_point_list = [0, 3600,12000,36000,60000,120000];//하향 랜덤박스 포인트
     let user = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk=${pk}`);
     user = user?.result[0];
-    console.log(user)
     let randombox_point = user?.sum_randombox??0;
     let user_tier = user?.tier??0;
     for(var i =0;i<=5;i++){
@@ -308,8 +307,6 @@ const updateUserTier = async (pk_) =>{
             await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
         }
         if(randombox_point < down_point_list[i] && user_tier/5 >= i){
-            console.log(randombox_point)
-            console.log(down_point_list[i])
             await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[(i-1)*5, pk]);
         }
     }
