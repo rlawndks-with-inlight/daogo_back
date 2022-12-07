@@ -690,25 +690,25 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2 }
         ]
         let parent_user_list = await getParentUserList(decode)
-        for(var i = 0;i<parent_user_list?.length;i++){
-            if(parent_user_list[i]?.pay_user_count>=10&&(parent_user_list[i]?.depth-decode?.depth<=15)){
-                if(parent_user_list[i]?.tier>0){
-                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+        for (var i = 0; i < parent_user_list?.length; i++) {
+            if (parent_user_list[i]?.pay_user_count >= 10 && (parent_user_list[i]?.depth - decode?.depth <= 15)) {
+                if (parent_user_list[i]?.tier > 0) {
+                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            }else if(parent_user_list[i]?.pay_user_count>=5&&(parent_user_list[i]?.depth-decode?.depth<=10)){
-                if(parent_user_list[i]?.tier>0){
-                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+            } else if (parent_user_list[i]?.pay_user_count >= 5 && (parent_user_list[i]?.depth - decode?.depth <= 10)) {
+                if (parent_user_list[i]?.tier > 0) {
+                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            }else if(parent_user_list[i]?.pay_user_count>=3&&(parent_user_list[i]?.depth-decode?.depth<=5)){
-                if(parent_user_list[i]?.tier>0){
-                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+            } else if (parent_user_list[i]?.pay_user_count >= 3 && (parent_user_list[i]?.depth - decode?.depth <= 5)) {
+                if (parent_user_list[i]?.tier > 0) {
+                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            }else if(parent_user_list[i]?.pay_user_count>=1&&(parent_user_list[i]?.depth-decode?.depth<=2)){
-                if(parent_user_list[i]?.tier>0){
-                    log_list.push({table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier)/100), user_pk: parent_user_list[i]?.pk, type: 11});
+            } else if (parent_user_list[i]?.pay_user_count >= 1 && (parent_user_list[i]?.depth - decode?.depth <= 2)) {
+                if (parent_user_list[i]?.tier > 0) {
+                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            }else{
-                
+            } else {
+
             }
         }
         await db.beginTransaction();
@@ -722,8 +722,9 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             await db.rollback();
             return response(req, res, -200, "유저의 금액은 마이너스가 될 수 없습니다.", []);
         }
-
-        await updateUserTier(decode?.pk);
+        for (var i = 0; i < log_list?.length; i++) {
+            await updateUserTier(log_list[i]?.user_pk);
+        }
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
@@ -933,7 +934,89 @@ const addMarketing = async (req, res) => {//매출등록
 }
 const onOutletOrder = async (req, res) => {//아울렛 구매
     try {
-
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { request, name, phone, zip_code, address, address_detail, refer, payment_pw, item_pk, use_point } = req.body;
+        let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
+        user = user?.result[0];
+        let insert_payment_pw = await makeHash(payment_pw);
+        if (insert_payment_pw?.data !== user?.payment_pw) {
+            return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
+        }
+        let introduce_percent_obj_by_tier = { 0: 5, 5: 6, 10: 7, 15: 8, 20: 9, 25: 10 };//할인율
+        let item = await dbQueryList(`SELECT * FROM outlet_table WHERE pk=${item_pk}`);
+        item = item?.result[0];
+        let user_money_ = await getUserMoneyReturn(decode?.pk);
+        let log_list = [];
+        if(use_point){
+            let point = 0;
+            if(user_money_?.point<item?.sell_star*(introduce_percent_obj_by_tier[user?.tier])/100){
+                point = user_money_?.point
+            }else{
+                point = item?.sell_star*(introduce_percent_obj_by_tier[user?.tier])/100
+            }
+            console.log(point)
+            log_list.push({ table: 'star', price: (item?.sell_star-point)*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
+                request:request,
+                name:name,
+                phone:phone,
+                zip_code:zip_code,
+                address:address,
+                address_detail:address_detail,
+                refer:refer,
+                item_pk:item?.pk,
+                item_name:item?.name,
+             })})
+             log_list.push({ table: 'point', price: point*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
+                request:request,
+                name:name,
+                phone:phone,
+                zip_code:zip_code,
+                address:address,
+                address_detail:address_detail,
+                refer:refer,
+                item_pk:item?.pk,
+                item_name:item?.name,
+             })})
+        }else{
+            log_list.push({ table: 'star', price: (item?.sell_star)*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
+                request:request,
+                name:name,
+                phone:phone,
+                zip_code:zip_code,
+                address:address,
+                address_detail:address_detail,
+                refer:refer,
+                item_pk:item?.pk,
+                item_name:item?.name,
+             })})
+        }
+        let parent_list = await getParentUserList(decode);
+        if(parent_list[0]?.tier>user?.tier){
+            log_list.push({ table: 'randombox', price: (item?.sell_star)*((introduce_percent_obj_by_tier[parent_list[0]?.tier]-introduce_percent_obj_by_tier[user?.tier])/100), user_pk: parent_list[0]?.pk, type: 12, item_pk:item?.pk, explain_obj: JSON.stringify({
+                item_pk:item?.pk,
+                item_name:item?.name,
+                user_pk:decode?.pk,
+                user_id:decode?.id,
+             })})
+        }
+        await db.beginTransaction();
+        for (var i = 0; i < log_list?.length; i++) {
+            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, item_pk) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, log_list[i]?.item_pk])//
+        }
+        await updateUserTier(parent_list[0]?.pk);
+        let user_money = await getUserMoneyReturn(decode?.pk);
+        let negative_result = await checkUserPointNegative(user_money);
+        if (negative_result) {
+            await db.rollback();
+            return response(req, res, -200, "잔액이 부족합니다.", []);
+        }
+        await updateUserTier(decode?.pk);
+        await db.commit();
+        return response(req, res, 100, "success", []);
     } catch (err) {
         console.log(err)
         await db.rollback();
@@ -1456,31 +1539,31 @@ const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오�
 const getParentUserList = async (decode_) => {//자신위의 유저들
     let decode = decode_;
     if (decode?.pk) {
-        let user_tree = await getGenealogyReturn({pk:1});
+        let user_tree = await getGenealogyReturn({ pk: 1 });
         let user_list = await dbQueryList('SELECT * FROM user_table');
         user_list = user_list?.result;
         let user_obj = {};
-        for(var i = 0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = user_list[i];
         }
         let parent_list = [];
         let parent_pk = decode?.parent_pk;
-        while(1){
+        while (1) {
             let parent_user = user_obj[parent_pk];
-            let direct_users = user_tree[parent_user?.depth+1][parent_user?.pk];
+            let direct_users = user_tree[parent_user?.depth + 1][parent_user?.pk];
             let pay_user_count = 0;
-            for(var i = 0;i<direct_users.length;i++){
-                if(direct_users[i]?.tier/5>0){
+            for (var i = 0; i < direct_users.length; i++) {
+                if (direct_users[i]?.tier / 5 > 0) {
                     pay_user_count++;
                 }
             }
             parent_user['pay_user_count'] = pay_user_count;
             parent_list.push(parent_user);
-            if(user_obj[parent_user?.parent_pk]?.user_level!=0){
+            if (user_obj[parent_user?.parent_pk]?.user_level != 0) {
                 break;
-            }else{
+            } else {
                 parent_pk = parent_user?.parent_pk;
-            }            
+            }
         }
         return parent_list;
     } else {

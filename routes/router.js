@@ -52,7 +52,6 @@ router.post('/buyesgwpoint', buyESGWPoint);
 router.post('/subscriptiondeposit', subscriptionDeposit);
 router.post('/onoutletorder', onOutletOrder);
 router.post('/addmarketing', addMarketing);
-
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
 //router.post('/addnotice', addNotice);
