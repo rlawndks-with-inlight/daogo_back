@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse,
-    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise
+    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -167,7 +167,7 @@ const onSignUp = async (req, res) => {
                                 }
                                 await db.query(sql, [id, hash, name, nickname, phone, user_level, parent_result[0]?.id ?? "", parent_result[0]?.pk ?? 0, depth, payment_pw], async (err, result) => {
 
-                                    if (err) {  
+                                    if (err) {
                                         console.log(err)
                                         return response(req, res, -200, "서버에러 발생", [])
                                     }
@@ -878,7 +878,7 @@ const addMarketing = async (req, res) => {
         let log_list = []
         for (var i = 0; i < marketing_list.length; i++) {
             if (marketing_list[i]?.price == marketing) {
-                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj:JSON.stringify({tier:(i+1)*5}) })
+                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj: JSON.stringify({ tier: (i + 1) * 5 }) })
                 break;
             }
         }
@@ -887,15 +887,15 @@ const addMarketing = async (req, res) => {
         }
         for (var i = 0; i < marketing_list.length; i++) {
             if (parent_user?.tier / 5 == i + 1) {
-                log_list.push({ table: 'star', price: marketing_list[i]?.price * (marketing_list[i]?.introduce_percent) * 80, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk,introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
-                log_list.push({ table: 'point', price: marketing_list[i]?.price * (marketing_list[i]?.introduce_percent) * 20, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk,introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
+                log_list.push({ table: 'star', price: marketing_list[i]?.price * (marketing_list[i]?.introduce_percent) * 80, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
+                log_list.push({ table: 'point', price: marketing_list[i]?.price * (marketing_list[i]?.introduce_percent) * 20, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
                 break;
             }
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj,decode?.pk])//0-출금전, 1-출금완료
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, decode?.pk])//0-출금전, 1-출금완료
         }
         await updateUserTier(is_exist_user?.pk);
         await db.commit();
@@ -1490,6 +1490,62 @@ const makeHash = (pw_) => {
         })
     })
 }
+const getGenealogyReturn = async (decode_) => {
+    let decode = decode_;
+    if (decode?.pk) {
+        let result = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table`);
+        result = result?.result;
+        let list = [...result];
+        let pk_idx_obj = {};
+        for (var i = 0; i < list.length; i++) {
+            pk_idx_obj[list[i].pk] = i;
+        }
+        let depth_list = [];
+        for (var i = 0; i < max_child_depth(); i++) {
+            depth_list[i] = {};
+        }
+        let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`)
+        auth = auth?.result[0]
+        depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
+        list = list.sort(function (a, b) {
+            return a.depth - b.depth;
+        })
+        for (var i = 0; i < list.length; i++) {
+            if (depth_list[list[i]?.depth][list[i]?.parent_pk] && list[i]?.depth) {
+                depth_list[list[i]?.depth][list[i]?.parent_pk].push(list[i]);
+                depth_list[list[i]?.depth + 1][`${list[i]?.pk}`] = [];
+            }
+        }
+        depth_list[auth?.depth][`${auth?.parent_pk}`] = [{ ...auth }];
+        return depth_list;
+    } else {
+        return [];
+    }
+}
+const getGenealogyScoreByGenealogyList = async (list_, decode_) =>{
+    let list = [...list_];
+    let decode = {...decode_};
+    let score_list = [];
+    let genealogy_score_list = [];
+    for(var i =0;i<list[decode?.depth+1][decode?.pk].length;i++){
+        let score_list = await getGenealogyReturn(list[decode?.depth+1][decode?.pk][i]);
+        let score = 0;
+        for(var j = 0;j<max_child_depth();j++){
+            for(var k=0;k<Object.keys(score_list[j]).length;k++){
+                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (b['tier'] || 0), 0)/5;
+            }
+        }
+        await genealogy_score_list.push(score);
+    }
+    let great = Math.max.apply(null, genealogy_score_list);
+    let loss = genealogy_score_list.reduce(function add(sum, currValue) {
+        return sum + currValue;
+      }, 0) - great;
+    return {
+        great:great,//대실적점수
+        loss:loss//소실적점수
+    }
+}
 const getGenealogy = (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -1508,7 +1564,7 @@ const getGenealogy = (req, res) => {
                     pk_idx_obj[list[i].pk] = i;
                 }
                 let depth_list = [];
-                for (var i = 0; i < 100; i++) {
+                for (var i = 0; i < max_child_depth(); i++) {
                     depth_list[i] = {};
                 }
                 let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`)
@@ -1548,7 +1604,7 @@ const getHomeContent = async (req, res) => {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
         let result_list = [];
-
+        let obj = {};
         let sql_list = [
             // {table:"randombox",sql:""},
             //  {table:"star",sql:""},
@@ -1563,7 +1619,9 @@ const getHomeContent = async (req, res) => {
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
             { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것, 
         ];
-
+        let genealogy_list = await getGenealogyReturn(decode);
+        let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode);
+        obj['genealogy_score'] = genealogy_score;
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
         }
@@ -1571,7 +1629,6 @@ const getHomeContent = async (req, res) => {
             await result_list[i];
         }
         let result = (await when(result_list));
-        let obj = {};
         for (var i = 0; i < (await result).length; i++) {
             obj[(await result[i])?.table] = (await result[i])?.data;
         }
@@ -2180,8 +2237,8 @@ const getItems = (req, res) => {
         }
         if (table == 'user') {
             sql = "SELECT * "
-            let money_categories = ['star','point','randombox','esgw'];
-            for(var i=0;i<money_categories.length;i++){
+            let money_categories = ['star', 'point', 'randombox', 'esgw'];
+            for (var i = 0; i < money_categories.length; i++) {
                 sql += `, (SELECT SUM(price) FROM log_${money_categories[i]}_table WHERE user_pk=user_table.pk) AS ${money_categories[i]} `
             }
             sql += ' FROM user_table '
