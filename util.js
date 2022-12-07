@@ -307,8 +307,10 @@ const updateUserTier = async (pk_) =>{
         if(randombox_point>=up_point_list[i] && user_tier/5 < i){
             await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
         }
-        if(randombox_point<down_point_list[i]&& user_tier/5 > i){
-            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
+        if(randombox_point < down_point_list[i] && user_tier/5 >= i){
+            console.log(randombox_point)
+            console.log(down_point_list[i])
+            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[(i-1)*5, pk]);
         }
     }
 }

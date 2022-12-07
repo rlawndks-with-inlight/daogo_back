@@ -4,6 +4,7 @@ const dbQueryRows = (sql) => {
     return new Promise((resolve, reject) => {
         db.query(sql, (err, result, fields) => {
             if (err) {
+                console.log(err)
                 reject({
                     code: -200,
                     maxPage: 0
@@ -22,6 +23,7 @@ const dbQueryList = (sql) => {
     return new Promise((resolve, reject) => {
         db.query(sql, (err, result, fields) => {
             if (err) {
+                console.log(err)
                 reject({
                     code: -200,
                     result: result
@@ -59,7 +61,6 @@ const getTableAI = (table) => {
     return new Promise((resolve, reject) => {
         db.query(`SHOW TABLE STATUS LIKE '${table}_table'`, (err, result, fields) => {
             if (err) {
-                console.log(sql)
                 console.log(err)
                 reject({
                     code: -200,
