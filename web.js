@@ -78,14 +78,22 @@ const scheduleDaily = () => {
                         let user_list = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk NOT IN (SELECT user_pk AS pk FROM log_star_table WHERE TYPE=7 AND TIMESTAMPDIFF(second,'2022-12-07 00:00',date) > -86400) AND user_level=0`);
                         user_list = user_list?.result;
                         let user_count = user_list.length;
+                        let daily_percent = await getDailyPercentReturn();
+
                         for (var i = 0; i < user_list.length; i++) {
-                                if (user_list[i]?.sum_randombox ?? 0 >= daily_data?.daily_deduction_point) {
-                                        await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [daily_data?.daily_deduction_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
-                                } else {
-                                        if (user_list[i]?.sum_randombox ?? 0 == 0) {
-                                        } else {
-                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [user_list[i]?.sum_randombox * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
+                                let rand_num = Math.floor(Math.random() * 101);
+                                let current_num = 0;
+                                for (var idx = 0; idx < daily_percent?.money_percent?.length; idx++) {
+                                        current_num += daily_percent?.money_percent[idx];
+                                        if (current_num > rand_num) {
+                                                break;
                                         }
+                                }
+                                let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list?.sum_randombox??0) / 100);
+                                if(randombox_point!=0){
+                                        await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
+                                }else{
+
                                 }
                         }
                         await insertQuery(`INSERT INTO log_daily_initialization_table (user_count) VALUES (?)`, [user_count]);

@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse,
-    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier
+    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -513,29 +513,6 @@ const getUserMoneyReturn = async (pk) => {
             obj[(await result[i])?.table] = (await result[i])?.data[0][(await result[i])?.table] ?? 0;
         }
     }
-    return obj;
-}
-const getDailyPercentReturn = async () => {
-    let result_list = [];
-    let sql_list = [
-        { table: "daily_percentage", sql: `SELECT * FROM daily_percentage_table` },
-    ];
-    for (var i = 0; i < sql_list.length; i++) {
-        result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
-    }
-    for (var i = 0; i < result_list.length; i++) {
-        await result_list[i];
-    }
-    let result = (await when(result_list));
-    let obj = { ...(await result[0])?.data[0] };
-
-    obj['type_percent'] = obj['type_percent'].split(',');
-    obj['type_percent'] = {
-        point: obj['type_percent'][0],
-        star: obj['type_percent'][1],
-    }
-    obj['money'] = obj['money'].split(',');
-    obj['money_percent'] = obj['money_percent'].split(',');
     return obj;
 }
 const checkUserPointNegative = (obj) => {
@@ -2234,7 +2211,6 @@ const getItems = (req, res) => {
                 sql += `, (SELECT SUM(price) FROM log_${money_categories[i]}_table WHERE user_pk=user_table.pk) AS ${money_categories[i]} `
             }
             sql += ' FROM user_table '
-            
         }
         if (table == 'coupon') {
             sql = "SELECT coupon_table.*, (price - sell_price) AS discount_price ,coupon_category_table.name AS category_name,coupon_brand_table.name AS brand_name from ";

@@ -193,6 +193,30 @@ const logRequest = (req) => {
         }
     )
 }
+
+const getDailyPercentReturn = async () => {
+    let result_list = [];
+    let sql_list = [
+        { table: "daily_percentage", sql: `SELECT * FROM daily_percentage_table` },
+    ];
+    for (var i = 0; i < sql_list.length; i++) {
+        result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
+    }
+    for (var i = 0; i < result_list.length; i++) {
+        await result_list[i];
+    }
+    let result = (await when(result_list));
+    let obj = { ...(await result[0])?.data[0] };
+
+    obj['type_percent'] = obj['type_percent'].split(',');
+    obj['type_percent'] = {
+        point: obj['type_percent'][0],
+        star: obj['type_percent'][1],
+    }
+    obj['money'] = obj['money'].split(',');
+    obj['money_percent'] = obj['money_percent'].split(',');
+    return obj;
+}
 const logResponse = (req, res) => {
     const requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip
     let response = JSON.stringify(res)
@@ -331,5 +355,5 @@ module.exports = {
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams,
-    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier
+    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn
 }
