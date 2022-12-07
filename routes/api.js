@@ -1497,8 +1497,8 @@ const makeHash = (pw_) => {
 
     return new Promise(async (resolve, reject) => {
         let pw = pw_;
-        if (!(typeof pw_ == 'string')) {
-            pw.toString();
+        if (!(typeof pw == 'string')) {
+            pw = pw.toString();
         }
         await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
             // bcrypt.hash(pw, salt, async (err, hash) => {

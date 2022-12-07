@@ -47,7 +47,7 @@ const HTTPS_PORT = 8443;
 if (is_test) {
         http.createServer(app).listen(HTTP_PORT, function () {
                 console.log("Server on " + HTTP_PORT);
-                scheduleDaily();
+                //scheduleDaily();
         });
 
 } else {
