@@ -1560,7 +1560,8 @@ const getHomeContent = async (req, res) => {
             { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "star_gift", sql: `SELECT SUM(price) AS star_gift FROM log_star_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것
-            { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것
+            { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
+            { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것, 
         ];
 
         for (var i = 0; i < sql_list.length; i++) {
