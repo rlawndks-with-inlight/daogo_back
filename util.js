@@ -323,20 +323,20 @@ function getSQLnParams(query, params, colNames) {
     }
     return { sql, param: returnParams }
 }
-const updateUserTier = async (pk_) =>{
+const updateUserTier = async (pk_) => {
     let pk = pk_;
-    let up_point_list = [0, 9000,30000,90000,150000,300000];//상향 랜덤박스 포인트
-    let down_point_list = [0, 3600,12000,36000,60000,120000];//하향 랜덤박스 포인트
+    let up_point_list = [0, 9000, 30000, 90000, 150000, 300000];//상향 랜덤박스 포인트
+    let down_point_list = [0, 3600, 12000, 36000, 60000, 120000];//하향 랜덤박스 포인트
     let user = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk=${pk}`);
     user = user?.result[0];
-    let randombox_point = user?.sum_randombox??0;
-    let user_tier = user?.tier??0;
-    for(var i =0;i<=5;i++){
-        if(randombox_point>=up_point_list[i] && user_tier/5 < i){
-            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[i*5, pk]);
+    let randombox_point = user?.sum_randombox ?? 0;
+    let user_tier = user?.tier ?? 0;
+    for (var i = 0; i <= 5; i++) {
+        if (randombox_point >= up_point_list[i] && user_tier / 5 < i) {
+            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`, [i * 5, pk]);
         }
-        if(randombox_point < down_point_list[i] && user_tier/5 >= i){
-            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`,[(i-1)*5, pk]);
+        if (randombox_point < down_point_list[i] && user_tier / 5 >= i) {
+            await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`, [(i - 1) * 5, pk]);
         }
     }
 }
@@ -378,16 +378,47 @@ const returnMoment = () => {
     let moment = dateString + ' ' + timeString;
     return moment;
 }
-const max_child_depth = () =>{//깊이
+const max_child_depth = () => {//깊이
     return 100;
 }
-const getEventRandomboxPercentByTier = (num) =>{
-    return num/10;
+const getEventRandomboxPercentByTier = (num) => {
+    return num / 10;
+}
+const getKewordListBySchema = (schema_) => {
+    let schema = schema_;
+    let list = [];
+    console.log(schema)
+    if(schema=='user'){
+        list = ['id', 'name', 'phone'];
+    }else if(schema=='user_subscriptiondeposit'){
+        list = ['id', 'name', 'phone'];
+    }else if(schema=='marketing'){
+        list = ['u_u.id', 'u_u.name'];
+    }else if(schema=='log_star'){
+        list = ['user_table.id', 'user_table.name'];
+    }else if(schema=='log_point'){
+        list = ['user_table.id', 'user_table.name'];
+    }else if(schema=='log_randombox'){
+        list = ['user_table.id', 'user_table.name'];
+    }else if(schema=='main_banner'){
+        list = ['link'];
+    }else if(schema=='notice'){
+        list = ['title'];
+    }else if(schema=='log_login'){
+        list = ['user_id','user_name','ip'];
+    }else if(schema=='log_manager_action'){
+        list = ['user_table.id','user_table.name'];
+    }else if(schema=='exchange'){
+        list = ['user_table.id','user_table.name','user_table.zip_code','user_table.bank_name','user_table.account_number','user_table.account_name'];
+    }else{
+        link = [];
+    }
+    return list;
 }
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
-    namingImagesPath, getSQLnParams,
+    namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
 }

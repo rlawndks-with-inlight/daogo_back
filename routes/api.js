@@ -10,7 +10,7 @@ const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
-    isNotNullOrUndefined, namingImagesPath, nullResponse,
+    isNotNullOrUndefined, namingImagesPath, nullResponse,getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
 } = require('../util')
 const {
@@ -538,6 +538,7 @@ const updateUserMoneyByManager = async (req, res) => {//관리자가 유저 포�
         })
         if (edit_list?.length > 0) {
             for (var i = 0; i < edit_list?.length; i++) {
+
                 let result = await insertQuery(`INSERT INTO log_${edit_list[i]?.type}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
                     [edit_list[i]?.price, pk, 5, edit_list[i]?.note, explain_obj])
             }
@@ -584,9 +585,21 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
         }
 
         let randombox_point = (parseFloat(daily_percent?.money[idx]) * user_money?.randombox / 100);
+        let point = 0;
+        if((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) <0.5){//내림
+            point = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100);
+        }else{//올림
+            point = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) + 1;
+        }
+        let star = 0;
+        if((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100) <0.5){//내림
+            star = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100);
+        }else{//올림
+            star = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100) + 1;
+        }
         let log_list = [{ table: 'randombox', price: randombox_point * (-1), user_pk: decode?.pk, type: 7 },
-        { table: 'point', price: (randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100, user_pk: decode?.pk, type: 7 },
-        { table: 'star', price: (randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100, user_pk: decode?.pk, type: 7 }];
+        { table: 'point', price: point, user_pk: decode?.pk, type: 7 },
+        { table: 'star', price: star, user_pk: decode?.pk, type: 7 }];
         let explain_obj = {
             percent: parseFloat(daily_percent?.money[idx])
         }
@@ -938,7 +951,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let { request, name, phone, zip_code, address, address_detail, refer, payment_pw, item_pk, use_point } = req.body;
+        let { request, name, phone, zip_code, address, address_detail, refer, payment_pw, item_pk, use_point, item_count } = req.body;
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
         let insert_payment_pw = await makeHash(payment_pw);
@@ -950,57 +963,62 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         item = item?.result[0];
         let user_money_ = await getUserMoneyReturn(decode?.pk);
         let log_list = [];
-        if(use_point){
+        if (use_point) {
             let point = 0;
-            if(user_money_?.point<item?.sell_star*(introduce_percent_obj_by_tier[user?.tier])/100){
+            if (user_money_?.point < (item?.sell_star * (introduce_percent_obj_by_tier[user?.tier]) / 100)*item_count) {
                 point = user_money_?.point
-            }else{
-                point = item?.sell_star*(introduce_percent_obj_by_tier[user?.tier])/100
+            } else {
+                point = (item?.sell_star * (introduce_percent_obj_by_tier[user?.tier]) / 100)*item_count
             }
-            console.log(point)
-            log_list.push({ table: 'star', price: (item?.sell_star-point)*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
-                request:request,
-                name:name,
-                phone:phone,
-                zip_code:zip_code,
-                address:address,
-                address_detail:address_detail,
-                refer:refer,
-                item_pk:item?.pk,
-                item_name:item?.name,
-             })})
-             log_list.push({ table: 'point', price: point*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
-                request:request,
-                name:name,
-                phone:phone,
-                zip_code:zip_code,
-                address:address,
-                address_detail:address_detail,
-                refer:refer,
-                item_pk:item?.pk,
-                item_name:item?.name,
-             })})
-        }else{
-            log_list.push({ table: 'star', price: (item?.sell_star)*(-1), user_pk: decode?.pk, type: 0, item_pk:item?.pk, explain_obj: JSON.stringify({
-                request:request,
-                name:name,
-                phone:phone,
-                zip_code:zip_code,
-                address:address,
-                address_detail:address_detail,
-                refer:refer,
-                item_pk:item?.pk,
-                item_name:item?.name,
-             })})
+            log_list.push({
+                table: 'star', price: (item?.sell_star*item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    request: request,
+                    name: name,
+                    phone: phone,
+                    zip_code: zip_code,
+                    address: address,
+                    address_detail: address_detail,
+                    refer: refer,
+                    status:0,
+                    point:point,
+                })
+            })
+            log_list.push({
+                table: 'point', price: point * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    request: request,
+                    name: name,
+                    phone: phone,
+                    zip_code: zip_code,
+                    address: address,
+                    address_detail: address_detail,
+                    refer: refer,
+                })
+            })
+        } else {
+            log_list.push({
+                table: 'star', price: (item?.sell_star) * (-1)*item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    request: request,
+                    name: name,
+                    phone: phone,
+                    zip_code: zip_code,
+                    address: address,
+                    address_detail: address_detail,
+                    refer: refer,
+                    status:0,
+                    point:0
+                })
+            })
         }
         let parent_list = await getParentUserList(decode);
-        if(parent_list[0]?.tier>user?.tier){
-            log_list.push({ table: 'randombox', price: (item?.sell_star)*((introduce_percent_obj_by_tier[parent_list[0]?.tier]-introduce_percent_obj_by_tier[user?.tier])/100), user_pk: parent_list[0]?.pk, type: 12, item_pk:item?.pk, explain_obj: JSON.stringify({
-                item_pk:item?.pk,
-                item_name:item?.name,
-                user_pk:decode?.pk,
-                user_id:decode?.id,
-             })})
+        if (parent_list[0]?.tier > user?.tier) {
+            log_list.push({
+                table: 'randombox', price: (item?.sell_star) * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100), user_pk: parent_list[0]?.pk, type: 12, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    item_pk: item?.pk,
+                    item_name: item?.name,
+                    user_pk: decode?.pk,
+                    user_id: decode?.id,
+                })
+            })
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -1666,6 +1684,8 @@ const getHomeContent = async (req, res) => {
             { table: "star_gift", sql: `SELECT SUM(price) AS star_gift FROM log_star_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
             { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것, 
+            { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
+            { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0,7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
         let genealogy_list = await getGenealogyReturn(decode);
         let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode);
@@ -2000,8 +2020,9 @@ const getItems = (req, res) => {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
-        }
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, keyword_columns, limit, page, page_cut, order } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        }getKewordListBySchema
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
 
@@ -2045,11 +2066,22 @@ const getItems = (req, res) => {
             sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
         }
+        if (table == 'outlet_order') {
+            pageSql = "SELECT COUNT(*) from ";
+            pageSql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
+            sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, outlet_table.name AS item_name, outlet_table.sell_star AS item_price, outlet_table.sell_user_id, outlet_table.sell_user_name, outlet_table.sell_user_phone, outlet_table.sell_revenue_percent  from ";
+            sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
+            sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
+            whereStr += `AND log_star_table.type=0 `;
+        }
         if (table == 'log_manager_action') {
+            pageSql = 'SELECT COUNT(*) FROM log_manager_action_table ';
+            pageSql += " log_manager_action_table LEFT JOIN user_table ON log_manager_action_table.user_pk=user_table.pk ";
             sql = "SELECT log_manager_action_table.*, user_table.id AS user_id, user_table.name AS user_name FROM ";
             sql += " log_manager_action_table LEFT JOIN user_table ON log_manager_action_table.user_pk=user_table.pk ";
         }
         if (table == 'log_star' || table == 'log_point' || table == 'log_randombox' || table == 'log_esgw') {
+            pageSql += ` ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk=user_table.pk`;
             sql = `SELECT ${table}_table.*, user_table.id AS user_id, user_table.name AS user_name FROM `;
             sql += ` ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk=user_table.pk`;
             if (decode.user_level < 40) {
@@ -2058,6 +2090,7 @@ const getItems = (req, res) => {
         }
         if (table == 'exchange') {
             pageSql = 'SELECT COUNT(*) FROM log_star_table ';
+            pageSql += ` log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk`;
             sql = `SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, user_table.bank_name, user_table.account_number, user_table.account_name FROM `;
             sql += ` log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk`;
             whereStr += `AND log_star_table.type=4`;
@@ -2069,17 +2102,30 @@ const getItems = (req, res) => {
         }
         if (table == 'marketing') {
             pageSql = 'SELECT COUNT(*) FROM log_randombox_table ';
+            pageSql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
+
             sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
             sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
             sql += "  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk ";
             whereStr += ` AND log_randombox_table.type=10 `;
         }
-        if (keyword) {
-            whereStr += " AND (";
-            for (var i = 0; i < keyword_columns.length; i++) {
-                whereStr += ` ${i != 0 ? 'OR' : ''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
+        if(table=='user_subscriptiondeposit'){
+            pageSql = `SELECT COUNT(*) FROM user_table `;
+            sql = "SELECT * "
+            let money_categories = ['star', 'point', 'randombox', 'esgw'];
+            for (var i = 0; i < money_categories.length; i++) {
+                sql += `, (SELECT SUM(price) FROM log_${money_categories[i]}_table WHERE user_pk=user_table.pk AND type=8) AS ${money_categories[i]} `
             }
-            whereStr += ")";
+            sql += ' FROM user_table '
+        }
+        if (keyword) {
+            if(keyword_columns?.length>0){
+                whereStr += " AND (";
+                for (var i = 0; i < keyword_columns.length; i++) {
+                    whereStr += ` ${i != 0 ? 'OR' : ''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
+                }
+                whereStr += ")";
+            }
         }
         if (!page_cut) {
             page_cut = 10;
@@ -2138,7 +2184,50 @@ const getSetting = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-
+const getGiftHistory = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        let result_list = [];
+        let obj = {};
+        let sql_list = [
+            // {table:"randombox",sql:""},
+            //  {table:"star",sql:""},
+            // {table:"point",sql:""},
+            { table: "star", sql: "SELECT *, '스타' AS category  FROM log_star_table WHERE type=3 AND price < 0  ", type: 'list' },
+            { table: "point", sql: "SELECT *, '포인트' AS category  FROM log_point_table WHERE type=3 AND price < 0 ", type: 'list' },
+        ];
+        for (var i = 0; i < sql_list.length; i++) {
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        let ans_list = [];
+        for (var i = 0; i < (await result).length; i++) {
+            ans_list = [...ans_list,...(await result[i])?.data];
+        }
+        ans_list = await ans_list.sort(function (a, b) {
+            let x = a.date.toLowerCase();
+            let y = b.date.toLowerCase();
+            if (x > y) {
+                return -1;
+            }
+            if (x < y) {
+                return 1;
+            }
+            return 0;
+        });
+        console.log(ans_list)
+        return response(req, res, 100, "success", ans_list)
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
 const addSetting = (req, res) => {
     try {
         const image = '/image/' + req.file.fieldname + '/' + req.file.filename;
@@ -2298,7 +2387,7 @@ const updateDailyPercent = (req, res) => {
 
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,
