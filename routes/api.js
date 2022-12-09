@@ -10,7 +10,7 @@ const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
-    isNotNullOrUndefined, namingImagesPath, nullResponse,getKewordListBySchema,
+    isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
 } = require('../util')
 const {
@@ -469,6 +469,12 @@ const getUserMoney = async (req, res) => {
             sql_list.push({ table: "point_subscription_deposit", sql: `SELECT SUM(price) AS point_subscription_deposit FROM log_point_table WHERE user_pk=${pk} AND type=8 ` })
             sql_list.push({ table: "esgw_subscription_deposit", sql: `SELECT SUM(price) AS esgw_subscription_deposit FROM log_esgw_table WHERE user_pk=${pk} AND type=8 ` })
         }
+        if (req?.query?.type == 'randomboxregister') {
+            sql_list.push({ table: "star_to_randombox", sql: `SELECT SUM(price) AS star_to_randombox FROM log_star_table WHERE user_pk=${pk} AND type=2 ` })
+        }
+        if (req?.query?.type == 'withdrawrequest') {
+            sql_list.push({ table: "withdraw_commission_percent", sql: `SELECT withdraw_commission_percent FROM setting_table ORDER BY pk DESC LIMIT 1` })
+        }
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
         }
@@ -586,15 +592,15 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
 
         let randombox_point = (parseFloat(daily_percent?.money[idx]) * user_money?.randombox / 100);
         let point = 0;
-        if((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) <0.5){//내림
+        if ((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) < 0.5) {//내림
             point = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100);
-        }else{//올림
+        } else {//올림
             point = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) + 1;
         }
         let star = 0;
-        if((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100) <0.5){//내림
+        if ((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100) < 0.5) {//내림
             star = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100);
-        }else{//올림
+        } else {//올림
             star = parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.star)) / 100) + 1;
         }
         let log_list = [{ table: 'randombox', price: randombox_point * (-1), user_pk: decode?.pk, type: 7 },
@@ -710,19 +716,19 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         for (var i = 0; i < parent_user_list?.length; i++) {
             if (parent_user_list[i]?.pay_user_count >= 10 && (parent_user_list[i]?.depth - decode?.depth <= 15)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 5 && (parent_user_list[i]?.depth - decode?.depth <= 10)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 3 && (parent_user_list[i]?.depth - decode?.depth <= 5)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 1 && (parent_user_list[i]?.depth - decode?.depth <= 2)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * 3 * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
             } else {
 
@@ -772,13 +778,15 @@ const requestWithdraw = async (req, res) => {//출금신청
         if (insert_payment_pw?.data !== user?.payment_pw) {
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
+        let withdraw_commission_percent = await dbQueryList(`SELECT withdraw_commission_percent FROM setting_table ORDER BY pk DESC LIMIT 1`);
+        withdraw_commission_percent = withdraw_commission_percent?.result[0]?.withdraw_commission_percent;
         let log_list = [
-            { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 4 },
+            { table: 'star', price: (star+star*withdraw_commission_percent/100) * (-1), user_pk: decode?.pk, type: 4 },
         ]
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0 })])//0-출금전, 1-출금완료
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0, withdraw_commission_percent:withdraw_commission_percent,receipt_won:star*100,star:star })])//0-출금전, 1-출금완료
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -969,24 +977,24 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         let user_money_ = await getUserMoneyReturn(decode?.pk);
         let log_list = [];
         let discount_percent = 0;
-        if(item?.is_use_point==0){
+        if (item?.is_use_point == 0) {
             discount_percent = 0;
-        }else if(item?.is_use_point==1){
+        } else if (item?.is_use_point == 1) {
             discount_percent = item?.point_percent;
-        }else if(item?.is_use_point==2){
+        } else if (item?.is_use_point == 2) {
             discount_percent = introduce_percent_obj_by_tier[user?.tier];
-        }else{
+        } else {
             discount_percent = 0;
         }
         if (use_point) {
             let point = 0;
-            if (user_money_?.point < (item?.sell_star * (discount_percent) / 100)*item_count) {
+            if (user_money_?.point < (item?.sell_star * (discount_percent) / 100) * item_count) {
                 point = user_money_?.point;
             } else {
-                point = (item?.sell_star * (discount_percent) / 100)*item_count;
+                point = (item?.sell_star * (discount_percent) / 100) * item_count;
             }
             log_list.push({
-                table: 'star', price: (item?.sell_star*item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star * item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -994,8 +1002,8 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    status:0,
-                    point:point,
+                    status: 0,
+                    point: point,
                 })
             })
             log_list.push({
@@ -1011,7 +1019,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             })
         } else {
             log_list.push({
-                table: 'star', price: (item?.sell_star) * (-1)*item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star) * (-1) * item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -1019,8 +1027,8 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    status:0,
-                    point:0
+                    status: 0,
+                    point: 0
                 })
             })
         }
@@ -1604,7 +1612,7 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
     }
 }
 const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적, 소실적 구하기
-    let get_score_by_tier = {0:0,5:36,10:120,15:360,20:600,25:1200};
+    let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
     let list = [...list_];
     let decode = { ...decode_ };
     let score_list = [];
@@ -1702,7 +1710,7 @@ const getHomeContent = async (req, res) => {
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
             { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것, 
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
-            { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0,7)}'`, type: 'obj' },//아울렛 구매이력, 
+            { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
         let genealogy_list = await getGenealogyReturn(decode);
         let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode);
@@ -2038,7 +2046,7 @@ const getItems = (req, res) => {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
-        }getKewordListBySchema
+        } getKewordListBySchema
         let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
@@ -2127,7 +2135,7 @@ const getItems = (req, res) => {
             sql += "  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk ";
             whereStr += ` AND log_randombox_table.type=10 `;
         }
-        if(table=='user_subscriptiondeposit'){
+        if (table == 'user_subscriptiondeposit') {
             pageSql = `SELECT COUNT(*) FROM user_table `;
             sql = "SELECT * "
             let money_categories = ['star', 'point', 'randombox', 'esgw'];
@@ -2137,7 +2145,7 @@ const getItems = (req, res) => {
             sql += ' FROM user_table '
         }
         if (keyword) {
-            if(keyword_columns?.length>0){
+            if (keyword_columns?.length > 0) {
                 whereStr += " AND (";
                 for (var i = 0; i < keyword_columns.length; i++) {
                     whereStr += ` ${i != 0 ? 'OR' : ''} ${keyword_columns[i]} LIKE '%${keyword}%' `;
@@ -2227,7 +2235,52 @@ const getGiftHistory = async (req, res) => {
         let result = (await when(result_list));
         let ans_list = [];
         for (var i = 0; i < (await result).length; i++) {
-            ans_list = [...ans_list,...(await result[i])?.data];
+            ans_list = [...ans_list, ...(await result[i])?.data];
+        }
+        ans_list = await ans_list.sort(function (a, b) {
+            let x = a.date.toLowerCase();
+            let y = b.date.toLowerCase();
+            if (x > y) {
+                return -1;
+            }
+            if (x < y) {
+                return 1;
+            }
+            return 0;
+        });
+        return response(req, res, 100, "success", ans_list)
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const getRandomboxRollingHistory = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        console.log(1)
+        let result_list = [];
+        let obj = {};
+        let sql_list = [
+            // {table:"randombox",sql:""},
+            //  {table:"star",sql:""},
+            // {table:"point",sql:""},
+            { table: "star", sql: `SELECT *, '스타' AS category  FROM log_star_table WHERE type=7 AND user_pk=${decode?.pk}`, type: 'list' },
+            { table: "point", sql: `SELECT *, '포인트' AS category  FROM log_point_table WHERE type=7 AND user_pk=${decode?.pk} `, type: 'list' },
+            { table: "randombox", sql: `SELECT *, '랜덤박스 포인트' AS category  FROM log_randombox_table WHERE type=7 AND user_pk=${decode?.pk} `, type: 'list' },
+        ];
+        for (var i = 0; i < sql_list.length; i++) {
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        let ans_list = [];
+        for (var i = 0; i < (await result).length; i++) {
+            ans_list = [...ans_list, ...(await result[i])?.data];
         }
         ans_list = await ans_list.sort(function (a, b) {
             let x = a.date.toLowerCase();
@@ -2265,22 +2318,27 @@ const addSetting = (req, res) => {
 }
 const updateSetting = (req, res) => {
     try {
-        const pk = req.body.pk;
-        const image = '/image/' + req.file.fieldname + '/' + req.file.filename;
-        db.query("UPDATE setting_table SET main_img=? WHERE pk=?", [image, pk], (err, result) => {
-            if (err) {
-                console.log(err)
-                return response(req, res, -200, "서버 에러 발생", [])
-            } else {
-                return response(req, res, 100, "success", [])
-            }
-        })
-    }
-    catch (err) {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        } else {
+            const { withdraw_commission_percent, pk } = req.body;
+            db.query('UPDATE setting_table SET withdraw_commission_percent=?  WHERE pk=?', [withdraw_commission_percent, pk], (err, result) => {
+                if (err) {
+                    console.log(err)
+                    return response(req, res, -200, "서버 에러 발생", [])
+                } else {
+                    return response(req, res, 100, "success", []);
+                }
+            })
+        }
+
+    } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+
 const updateStatus = (req, res) => {
     try {
         const { table, pk, num, column } = req.body;
@@ -2405,7 +2463,7 @@ const updateDailyPercent = (req, res) => {
 
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,

@@ -3,7 +3,7 @@ const router = express.Router();
 const { upload } = require('../config/multerConfig')
 const {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
     deleteItem,
@@ -42,7 +42,8 @@ router.post('/getgenealogy', getGenealogy);
 router.get('/getusermoney', getUserMoney);
 router.post('/updateuser', upload.single('profile'), updateUser);
 router.get('/getdailypercent', getDailyPercent);
-router.post('/updatedailypercent', updateDailyPercent); lotteryDailyPoint
+router.post('/updatedailypercent', updateDailyPercent);
+router.get('/getsetting', getSetting);
 router.post('/updateusermoneybymanager', updateUserMoneyByManager);
 router.post('/lotterydailypoint', lotteryDailyPoint);
 router.post('/registerrandomBox', registerRandomBox);
@@ -53,6 +54,7 @@ router.post('/subscriptiondeposit', subscriptionDeposit);
 router.post('/onoutletorder', onOutletOrder);
 router.post('/addmarketing', addMarketing);
 router.get('/gifthistory', getGiftHistory);
+router.get('/randomboxrollinghistory', getRandomboxRollingHistory);
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
 //router.post('/addnotice', addNotice);
@@ -69,9 +71,8 @@ router.get('/items', getItems);
 router.post('/items', getItems);
 router.get('/item', getItem);
 router.get('/gethomecontent', getHomeContent);
-router.post('/updatesetting', upload.single('master'), updateSetting);
+router.post('/updatesetting',  updateSetting);
 router.post('/addsetting', upload.single('master'), addSetting);
-router.get('/setting', getSetting);
 router.post('/updatestatus', updateStatus);
 //router.get('/getvideocontent', getVideoContent);
 router.get('/video/:pk', getVideo);
