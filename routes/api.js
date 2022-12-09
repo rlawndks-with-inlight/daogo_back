@@ -959,16 +959,27 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
         let introduce_percent_obj_by_tier = { 0: 5, 5: 6, 10: 7, 15: 8, 20: 9, 25: 10 };//할인율
+
         let item = await dbQueryList(`SELECT * FROM outlet_table WHERE pk=${item_pk}`);
         item = item?.result[0];
         let user_money_ = await getUserMoneyReturn(decode?.pk);
         let log_list = [];
+        let discount_percent = 0;
+        if(item?.is_use_point==0){
+            discount_percent = 0;
+        }else if(item?.is_use_point==1){
+            discount_percent = item?.point_percent;
+        }else if(item?.is_use_point==2){
+            discount_percent = introduce_percent_obj_by_tier[user?.tier];
+        }else{
+            discount_percent = 0;
+        }
         if (use_point) {
             let point = 0;
-            if (user_money_?.point < (item?.sell_star * (introduce_percent_obj_by_tier[user?.tier]) / 100)*item_count) {
-                point = user_money_?.point
+            if (user_money_?.point < (item?.sell_star * (discount_percent) / 100)*item_count) {
+                point = user_money_?.point;
             } else {
-                point = (item?.sell_star * (introduce_percent_obj_by_tier[user?.tier]) / 100)*item_count
+                point = (item?.sell_star * (discount_percent) / 100)*item_count;
             }
             log_list.push({
                 table: 'star', price: (item?.sell_star*item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
@@ -1830,6 +1841,8 @@ const addItem = (req, res) => {
         }
         let table = req.body.table;
         let sql = `INSERT INTO ${table}_table (${keys.join()}) VALUES (${values_str}) `;
+        console.log(sql)
+        console.log(values)
         db.query(sql, values, async (err, result) => {
             if (err) {
                 console.log(err)
