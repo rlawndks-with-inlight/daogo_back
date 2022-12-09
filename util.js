@@ -331,12 +331,16 @@ const updateUserTier = async (pk_) => {
     user = user?.result[0];
     let randombox_point = user?.sum_randombox ?? 0;
     let user_tier = user?.tier ?? 0;
-    for (var i = 0; i <= 5; i++) {
+    for (var i = 5; i >= 0; i--) {//상향 for문
         if (randombox_point >= up_point_list[i] && user_tier / 5 < i) {
             await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`, [i * 5, pk]);
+            return;
         }
+    }
+    for (var i = 0; i <= 5; i++) {//하향 for문
         if (randombox_point < down_point_list[i] && user_tier / 5 >= i) {
             await insertQuery(`UPDATE user_table SET tier=? WHERE pk=?`, [(i - 1) * 5, pk]);
+            return;
         }
     }
 }

@@ -630,7 +630,7 @@ const onGift = async (req, res) => {//선물
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let { receiver_id, receiver_phone, send_star, send_point, payment_pw } = req.body;
+        let { receiver_id, receiver_phone, send_star, send_point, send_esgw, payment_pw } = req.body;
         let receiver_user = await dbQueryList(`SELECT * FROM user_table WHERE id='${receiver_id}'`);
         receiver_user = receiver_user?.result[0] ?? {};
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
@@ -645,7 +645,7 @@ const onGift = async (req, res) => {//선물
         if (receiver_phone !== receiver_user?.phone.substring(receiver_user?.phone.length - 4, receiver_user?.phone.length)) {
             return response(req, res, -100, "받는사람 휴대폰 마지막 4자리가 틀렸습니다.", []);
         }
-        if ((send_star < 0 && send_star) || (send_point < 0 && send_point)) {
+        if ((send_star < 0 && send_star) || (send_point < 0 && send_point) || (send_esgw < 0 && send_esgw)) {
             return response(req, res, -100, "0 이상의 숫자를 입력해주세요.", []);
         }
         let log_list = [];
@@ -656,6 +656,10 @@ const onGift = async (req, res) => {//선물
         if (send_point && send_point > 0) {
             log_list.push({ table: 'point', price: send_point * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
             log_list.push({ table: 'point', price: send_point * (97 / 100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+        }
+        if (send_esgw && send_esgw > 0) {
+            log_list.push({ table: 'esgw', price: send_esgw * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
+            log_list.push({ table: 'esgw', price: send_esgw * (97 / 100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -1600,6 +1604,7 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
     }
 }
 const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적, 소실적 구하기
+    let get_score_by_tier = {0:0,5:36,10:120,15:360,20:600,25:1200};
     let list = [...list_];
     let decode = { ...decode_ };
     let score_list = [];
@@ -1609,7 +1614,8 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
         let score = 0;
         for (var j = 0; j < max_child_depth(); j++) {
             for (var k = 0; k < Object.keys(score_list[j]).length; k++) {
-                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (b['tier'] || 0), 0) / 5;
+                console.log(score_list[j][Object.keys(score_list[j])[k]])
+                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (get_score_by_tier[b['tier']] || 0), 0);
             }
         }
         await genealogy_score_list.push(score);
@@ -1842,7 +1848,6 @@ const addItem = (req, res) => {
         let table = req.body.table;
         let sql = `INSERT INTO ${table}_table (${keys.join()}) VALUES (${values_str}) `;
         console.log(sql)
-        console.log(values)
         db.query(sql, values, async (err, result) => {
             if (err) {
                 console.log(err)
@@ -2211,6 +2216,7 @@ const getGiftHistory = async (req, res) => {
             // {table:"point",sql:""},
             { table: "star", sql: "SELECT *, '스타' AS category  FROM log_star_table WHERE type=3 AND price < 0  ", type: 'list' },
             { table: "point", sql: "SELECT *, '포인트' AS category  FROM log_point_table WHERE type=3 AND price < 0 ", type: 'list' },
+            { table: "esgw", sql: "SELECT *, 'ESGW 포인트' AS category  FROM log_esgw_table WHERE type=3 AND price < 0 ", type: 'list' },
         ];
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
@@ -2234,7 +2240,6 @@ const getGiftHistory = async (req, res) => {
             }
             return 0;
         });
-        console.log(ans_list)
         return response(req, res, 100, "success", ans_list)
     } catch (err) {
         console.log(err)
