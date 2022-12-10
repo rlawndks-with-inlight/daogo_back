@@ -391,7 +391,6 @@ const getEventRandomboxPercentByTier = (num) => {
 const getKewordListBySchema = (schema_) => {
     let schema = schema_;
     let list = [];
-    console.log(schema)
     if(schema=='user'){
         list = ['id', 'name', 'phone'];
     }else if(schema=='user_subscriptiondeposit'){

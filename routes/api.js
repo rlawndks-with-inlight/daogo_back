@@ -275,7 +275,8 @@ const onLoginById = async (req, res) => {
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
                                 let is_user_lottery_today = await dbQueryList(`SELECT * FROM log_randombox_table WHERE DATE_FORMAT(date,'%Y-%m-%d') = '${returnMoment().substring(0, 10)}' AND user_pk=${result1[0].pk} AND type=7`)
-                                if (is_user_lottery_today?.result?.length > 0) {
+                                let user_money = await getUserMoneyReturn(result1[0]?.pk);
+                                if (is_user_lottery_today?.result?.length > 0 || user_money?.randombox <= 0) {
                                     is_user_lottery_today = true;
                                 } else {
                                     is_user_lottery_today = false;
@@ -580,6 +581,9 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
             return response(req, res, -100, "오늘 이미 데일리 추첨을 완료하였습니다.", []);
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
+        if (user_money?.randombox <= 0) {
+            return response(req, res, -100, "랜덤박스 포인트를 보유하고 있지 않습니다.", []);
+        }
         let daily_percent = await getDailyPercentReturn();
         let rand_num = Math.floor(Math.random() * 101);
         let current_num = 0;
@@ -589,7 +593,6 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
                 break;
             }
         }
-
         let randombox_point = (parseFloat(daily_percent?.money[idx]) * user_money?.randombox / 100);
         let point = 0;
         if ((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100 - parseInt((randombox_point * parseFloat(daily_percent?.type_percent?.point)) / 100) < 0.5) {//내림
@@ -781,12 +784,12 @@ const requestWithdraw = async (req, res) => {//출금신청
         let withdraw_commission_percent = await dbQueryList(`SELECT withdraw_commission_percent FROM setting_table ORDER BY pk DESC LIMIT 1`);
         withdraw_commission_percent = withdraw_commission_percent?.result[0]?.withdraw_commission_percent;
         let log_list = [
-            { table: 'star', price: (star+star*withdraw_commission_percent/100) * (-1), user_pk: decode?.pk, type: 4 },
+            { table: 'star', price: (star + star * withdraw_commission_percent / 100) * (-1), user_pk: decode?.pk, type: 4 },
         ]
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0, withdraw_commission_percent:withdraw_commission_percent,receipt_won:star*100,star:star })])//0-출금전, 1-출금완료
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0, withdraw_commission_percent: withdraw_commission_percent, receipt_won: star * 100, star: star })])//0-출금전, 1-출금완료
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -1004,6 +1007,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     refer: refer,
                     status: 0,
                     point: point,
+                    count:item_count,
                 })
             })
             log_list.push({
@@ -1015,6 +1019,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
+                    count:item_count,
                 })
             })
         } else {
@@ -1028,7 +1033,8 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address_detail: address_detail,
                     refer: refer,
                     status: 0,
-                    point: 0
+                    point: 0,
+                    count:item_count,
                 })
             })
         }
@@ -1628,10 +1634,18 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
         }
         await genealogy_score_list.push(score);
     }
-    let great = Math.max.apply(null, genealogy_score_list);
-    let loss = genealogy_score_list.reduce(function add(sum, currValue) {
+    let great = 0;
+    let loss = 0;
+    great = Math.max.apply(null, genealogy_score_list);
+    loss = genealogy_score_list.reduce(function add(sum, currValue) {
         return sum + currValue;
     }, 0) - great;
+    if(isNaN(parseInt(great))){
+        great = 0;
+    }
+    if(isNaN(parseInt(loss))){
+        loss = 0
+    }
     return {
         great: great,//대실적점수
         loss: loss//소실적점수
@@ -2047,11 +2061,10 @@ const getItems = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } getKewordListBySchema
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
-
         let whereStr = " WHERE 1=1 ";
         if (level) {
             if (level == 0) {
@@ -2073,6 +2086,9 @@ const getItems = (req, res) => {
         }
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
+        }
+        if (increase) {
+            whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
         if (table == 'user') {
             sql = "SELECT * "
@@ -2099,6 +2115,9 @@ const getItems = (req, res) => {
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
             whereStr += `AND log_star_table.type=0 `;
+            if(decode?.user_level<40){
+                whereStr += `AND user_pk=${decode?.pk} `;
+            }
         }
         if (table == 'log_manager_action') {
             pageSql = 'SELECT COUNT(*) FROM log_manager_action_table ';
@@ -2161,6 +2180,7 @@ const getItems = (req, res) => {
         if (limit && !page) {
             sql += ` LIMIT ${limit} `;
         }
+        console.log(page)
         if (page) {
 
             sql += ` LIMIT ${(page - 1) * page_cut}, ${page_cut}`;
@@ -2260,7 +2280,7 @@ const getRandomboxRollingHistory = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
-        console.log(1)
+        let { increase } = req.query;
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -2272,6 +2292,9 @@ const getRandomboxRollingHistory = async (req, res) => {
             { table: "randombox", sql: `SELECT *, '랜덤박스 포인트' AS category  FROM log_randombox_table WHERE type=7 AND user_pk=${decode?.pk} `, type: 'list' },
         ];
         for (var i = 0; i < sql_list.length; i++) {
+            if (increase) {
+                sql_list[i].sql += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `
+            }
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
         }
         for (var i = 0; i < result_list.length; i++) {
