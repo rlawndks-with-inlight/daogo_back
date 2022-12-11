@@ -5,7 +5,7 @@ const {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
     getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus,//update
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard,//update
     deleteItem,
     requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 } = require('./api')
@@ -57,6 +57,7 @@ router.get('/gifthistory', getGiftHistory);
 router.get('/randomboxrollinghistory', getRandomboxRollingHistory);
 router.post('/onchangeexchangestatus', onChangeExchangeStatus);
 router.post('/onchangeoutletorderstatus', onChangeOutletOrderStatus);
+router.post('/initializationidcard', initializationIdCard);
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
 //router.post('/addnotice', addNotice);

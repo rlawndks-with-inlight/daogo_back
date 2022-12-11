@@ -437,7 +437,29 @@ const editMyInfo = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-
+const initializationIdCard = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        const { pk } = req.body;
+        let url = "";
+        db.query("UPDATE user_table SET profile_img=? WHERE pk=?", [url, pk], (err, result) => {
+            if (err) {
+                console.log(err)
+                return response(req, res, -200, "서버 에러 발생", [])
+            }
+            else {
+                return response(req, res, 200, "success", [])
+            }
+        })
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
 const getUserMoney = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0)
@@ -1412,7 +1434,7 @@ const getMyPageContent = async (req, res) => {
             { table: "withdraw", sql: `SELECT price, explain_obj FROM log_star_table WHERE user_pk=${decode?.pk} AND type=4`, type: 'list' },
             { table: "purchase", sql: `SELECT SUM(price) AS purchase FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
         ];
-        
+
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
         }
@@ -2619,7 +2641,7 @@ module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
     getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus,//update
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard,//update
     deleteItem,
     requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 };
