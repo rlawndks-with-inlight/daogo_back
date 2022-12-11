@@ -3,9 +3,9 @@ const router = express.Router();
 const { upload } = require('../config/multerConfig')
 const {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus,//update
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus,//update
     deleteItem,
     requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 } = require('./api')
@@ -56,6 +56,7 @@ router.post('/addmarketing', addMarketing);
 router.get('/gifthistory', getGiftHistory);
 router.get('/randomboxrollinghistory', getRandomboxRollingHistory);
 router.post('/onchangeexchangestatus', onChangeExchangeStatus);
+router.post('/onchangeoutletorderstatus', onChangeOutletOrderStatus);
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
 //router.post('/addnotice', addNotice);
@@ -72,6 +73,7 @@ router.get('/items', getItems);
 router.post('/items', getItems);
 router.get('/item', getItem);
 router.get('/gethomecontent', getHomeContent);
+router.get('/getmypagecontent', getMyPageContent);
 router.post('/updatesetting',  updateSetting);
 router.post('/addsetting', upload.single('master'), addSetting);
 router.post('/updatestatus', updateStatus);

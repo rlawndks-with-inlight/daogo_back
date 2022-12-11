@@ -416,7 +416,6 @@ const editMyInfo = async (req, res) => {
                     return response(req, res, -200, "서버 에러 발생", [])
                 } else {
                     db.query(sql, values, async (err, result) => {
-                        console.log(sql)
                         if (err) {
                             console.log(err)
                             await db.rollback();
@@ -1083,23 +1082,72 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
         let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
         star_log = star_log?.result[0];
         let explain_obj = JSON.parse(star_log['explain_obj']);
-        
+
         let sql = "UPDATE log_star_table SET ";
         let values = [];
-        if(status==-1 || status==1){
+        if (status == -1 || status == 1) {
             sql += " manager_pk=?, ";
             values.push(decode?.pk);
-        }else if(status==2){
-            if(star_log?.manager_pk != decode?.pk){
+        } else if (status == 2) {
+            if (star_log?.manager_pk != decode?.pk) {
                 return response(req, res, -100, "담당자가 일치하지 않습니다.", []);
             }
-        }else{
+        } else {
             return response(req, res, -100, "잘못된 값입니다.", []);
         }
         explain_obj['status'] = status;//상태
         explain_obj['date'] = returnMoment();//진행완료일
 
-        sql+= " explain_obj=? ";
+        sql += " explain_obj=? ";
+        values.push(JSON.stringify(explain_obj));
+        sql += ` WHERE pk=? `;
+        values.push(pk);
+        let result = insertQuery(sql, values);
+        return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const onChangeOutletOrderStatus = async (req, res) => {//출금신청 관리
+    try {
+        const { pk, status, invoice, return_reason } = req.body;
+        if (!pk || !status) {
+            return response(req, res, -100, "필수값이 비어 있습니다.", []);
+        }
+
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
+        star_log = star_log?.result[0];
+        let explain_obj = JSON.parse(star_log['explain_obj']);
+
+        let sql = "UPDATE log_star_table SET ";
+        let values = [];
+        if (status == -1 || status == 1) {
+            sql += " manager_pk=?, ";
+            values.push(decode?.pk);
+            if (status == 1) {
+                explain_obj['invoice'] = invoice;//송장
+            } else {
+                explain_obj['return_reason'] = return_reason;//반송사유
+            }
+        } else if (status == 2) {
+            if (star_log?.manager_pk != decode?.pk) {
+                return response(req, res, -100, "담당자가 일치하지 않습니다.", []);
+            }
+        } else {
+            return response(req, res, -100, "잘못된 값입니다.", []);
+        }
+        explain_obj['status'] = status;//상태
+        explain_obj['date'] = returnMoment();//진행완료일
+
+        sql += " explain_obj=? ";
         values.push(JSON.stringify(explain_obj));
         sql += ` WHERE pk=? `;
         values.push(pk);
@@ -1324,9 +1372,12 @@ const getUserToken = async (req, res) => {
         const decode = checkLevel(req.cookies.token, 0)
         if (decode) {
             let obj = decode;
+            let sell_outlet = await dbQueryList(`SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`)
             let result = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
             if (result?.code > 0) {
-                res.send(result?.result[0]);
+                result = result?.result[0];
+                result['sell_outlet'] = sell_outlet?.result[0];
+                res.send(result);
             } else {
                 res.send({
                     pk: -1,
@@ -1339,6 +1390,40 @@ const getUserToken = async (req, res) => {
                 level: -1
             })
         }
+    } catch (e) {
+        console.log(e)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const getMyPageContent = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
+        let result_list = [];
+        let obj = {};
+        let sql_list = [
+            // {table:"randombox",sql:""},
+            //  {table:"star",sql:""},
+            // {table:"point",sql:""},
+            { table: "user", sql: `SELECT * FROM user_table WHERE pk=${decode?.pk}`, type: 'obj' },
+            { table: "marketing", sql: `SELECT price, explain_obj FROM log_randombox_table WHERE user_pk=${decode?.pk} AND type=10`, type: 'list' },
+            { table: "withdraw", sql: `SELECT price, explain_obj FROM log_star_table WHERE user_pk=${decode?.pk} AND type=4`, type: 'list' },
+            { table: "purchase", sql: `SELECT SUM(price) AS purchase FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
+        ];
+        
+        for (var i = 0; i < sql_list.length; i++) {
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        for (var i = 0; i < (await result).length; i++) {
+            obj[(await result[i])?.table] = (await result[i])?.data;
+        }
+        return response(req, res, 100, "success", obj)
     } catch (e) {
         console.log(e)
         return response(req, res, -200, "서버 에러 발생", [])
@@ -1661,7 +1746,6 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
     let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
     let list = [...list_];
     let decode = { ...decode_ };
-    let score_list = [];
     let genealogy_score_list = [];
     for (var i = 0; i < list[decode?.depth + 1][decode?.pk].length; i++) {
         let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i]);
@@ -2101,7 +2185,7 @@ const getItems = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } getKewordListBySchema
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
@@ -2124,12 +2208,16 @@ const getItems = (req, res) => {
         if (status) {
             whereStr += ` AND status=${status} `;
         }
+        if (is_popup) {
+            whereStr += ` AND is_popup=${is_popup} `;
+        }
         if (user_pk) {
             whereStr += ` AND user_pk=${user_pk} `;
         }
         if (increase) {
             whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
+
         if (table == 'user') {
             sql = "SELECT * "
             let money_categories = ['star', 'point', 'randombox', 'esgw'];
@@ -2529,9 +2617,9 @@ const updateDailyPercent = (req, res) => {
 
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus,//update
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus,//update
     deleteItem,
     requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 };
