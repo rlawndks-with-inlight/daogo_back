@@ -1007,7 +1007,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     refer: refer,
                     status: 0,
                     point: point,
-                    count:item_count,
+                    count: item_count,
                 })
             })
             log_list.push({
@@ -1019,7 +1019,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    count:item_count,
+                    count: item_count,
                 })
             })
         } else {
@@ -1034,7 +1034,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     refer: refer,
                     status: 0,
                     point: 0,
-                    count:item_count,
+                    count: item_count,
                 })
             })
         }
@@ -1072,7 +1072,47 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
 
     }
 }
+const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
+    try {
+        const { pk, status } = req.body;
+        console.log(req.body);
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
+        star_log = star_log?.result[0];
+        let explain_obj = JSON.parse(star_log['explain_obj']);
+        
+        let sql = "UPDATE log_star_table SET ";
+        let values = [];
+        if(status==-1 || status==1){
+            sql += " manager_pk=?, ";
+            values.push(decode?.pk);
+        }else if(status==2){
+            if(star_log?.manager_pk != decode?.pk){
+                return response(req, res, -100, "담당자가 일치하지 않습니다.", []);
+            }
+        }else{
+            return response(req, res, -100, "잘못된 값입니다.", []);
+        }
+        explain_obj['status'] = status;//상태
+        explain_obj['date'] = returnMoment();//진행완료일
 
+        sql+= " explain_obj=? ";
+        values.push(JSON.stringify(explain_obj));
+        sql += ` WHERE pk=? `;
+        values.push(pk);
+        let result = insertQuery(sql, values);
+        return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const onResign = (req, res) => {
     try {
         let { id } = req.body;
@@ -1640,10 +1680,10 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
     loss = genealogy_score_list.reduce(function add(sum, currValue) {
         return sum + currValue;
     }, 0) - great;
-    if(isNaN(parseInt(great))){
+    if (isNaN(parseInt(great))) {
         great = 0;
     }
-    if(isNaN(parseInt(loss))){
+    if (isNaN(parseInt(loss))) {
         loss = 0
     }
     return {
@@ -2115,7 +2155,7 @@ const getItems = (req, res) => {
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
             whereStr += `AND log_star_table.type=0 `;
-            if(decode?.user_level<40){
+            if (decode?.user_level < 40) {
                 whereStr += `AND user_pk=${decode?.pk} `;
             }
         }
@@ -2135,10 +2175,14 @@ const getItems = (req, res) => {
         }
         if (table == 'exchange') {
             pageSql = 'SELECT COUNT(*) FROM log_star_table ';
-            pageSql += ` log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk`;
-            sql = `SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, user_table.bank_name, user_table.account_number, user_table.account_name FROM `;
-            sql += ` log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk`;
-            whereStr += `AND log_star_table.type=4`;
+            pageSql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql = "SELECT log_star_table.*, u_u.id AS user_id, u_u.name AS user_name, u_u.bank_name, u_u.account_number, u_u.account_name, m_u.id AS manager_id, m_u.name AS manager_name FROM ";
+            sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
+            whereStr += ` AND log_star_table.type=4 `;
+            if (decode.user_level < 40) {
+                whereStr += `AND u_u.pk=${decode.pk}`;
+            }
         }
         if (table == 'log_withdraw') {
             sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name FROM ";
@@ -2148,7 +2192,6 @@ const getItems = (req, res) => {
         if (table == 'marketing') {
             pageSql = 'SELECT COUNT(*) FROM log_randombox_table ';
             pageSql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
-
             sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
             sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
             sql += "  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk ";
@@ -2488,7 +2531,7 @@ module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
     getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
-    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint,//update
+    updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus,//update
     deleteItem,
     requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
 };
