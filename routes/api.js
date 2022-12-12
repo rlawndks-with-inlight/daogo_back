@@ -273,7 +273,10 @@ const onLoginById = async (req, res) => {
                                     requestIp = '0.0.0.0'
                                 }
                                 requestIp = ip.address();
-                                console.log(requestIp)
+                                console.log(ip.address())
+                                console.log(req.headers['x-forwarded-for'])
+                                console.log(req.connection.remoteAddress )
+                                console.log(req.ip )
                                 requestIp = requestIp.replaceAll('::ffff:', '');
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
