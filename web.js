@@ -10,6 +10,7 @@ const https = require('https')
 const port = 8001;
 app.use(cors());
 const http = require('http')
+const {mw} = require('request-ip');
 require('dotenv').config()
 //passport, jwt
 const jwt = require('jsonwebtoken')
@@ -22,6 +23,7 @@ const { upload } = require('./config/multerConfig')
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(mw());
 // app.use(passport.initialize());
 // app.use(passport.session());
 // passportConfig(passport);

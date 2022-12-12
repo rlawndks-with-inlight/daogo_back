@@ -7,6 +7,8 @@ const fcmNode = require("fcm-node");
 const serviceAccount = require("./config/privatekey_firebase.json");
 const { insertQuery, dbQueryList } = require('./query-util');
 const when = require('when')
+var ip =require('ip');
+const requestIp = require('request-ip');
 const firebaseToken = 'fV0vRpDpTfCnY_VggFEgN7:APA91bHdHP6ilBpe9Wos5Y72SXFka2uAM3luANewGuw7Bx2XGnvUNjK5e5k945xwcXpW8NNei3LEaBtKT2_2A6naix8Wg5heVik8O2Aop_fu8bUibnGxuCe3RLQDtHNrMeC5gmgGRoVh';
 const fcmServerKey = "AAAA35TttWk:APA91bGLGZjdD2fgaPRh8eYyu9CDSndD97ZdO4MBypbpICClEwMADAJnt2giOaCWRvMldof5DkplMptbmyN0Fm0Q975dm-CD7i0XhrHzjgMN0EKfXHxLy4NyohEVXDHW5DBfYrlncvQh";
 firebase.initializeApp({
@@ -121,7 +123,7 @@ const logRequestResponse = (req, res) => {
     } catch (err) {
         requestIp = '0.0.0.0'
     }
-
+    requestIp = ip.address();
     let request = {
         url: req.originalUrl,
         headers: req.headers,
@@ -164,6 +166,7 @@ const logManagerAction = (req, res, item) => {
     } catch (err) {
         requestIp = '0.0.0.0'
     }
+    requestIp = ip.address();
     requestIp = requestIp.replaceAll('::ffff:', '');
     db.query("INSERT INTO log_manager_action_table (user_pk, ip, manager_note, reason_correction) VALUES (?, ?, ?, ?)", [user_pk, requestIp, manager_note, reason_correction], (err, result) => {
         if (err) {
@@ -173,7 +176,8 @@ const logManagerAction = (req, res, item) => {
     })
 }
 const logRequest = (req) => {
-    const requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip
+    let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip
+    requestIp = ip.address();
     let request = {
         url: req.originalUrl,
         headers: req.headers,
@@ -181,6 +185,7 @@ const logRequest = (req) => {
         params: req.params,
         body: req.body
     }
+
     request = JSON.stringify(request)
     db.query(
         "INSERT INTO log_information_tb (request, request_ip) VALUES (?, ?)",
@@ -247,7 +252,8 @@ const getDailyPercentReturn = async () => {
     return obj;
 }
 const logResponse = (req, res) => {
-    const requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip
+    let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+    requestIp = ip.address();
     let response = JSON.stringify(res)
     // db.query(
     //     "UPDATE log_information_tb SET response=? WHERE request_ip=? ORDER BY pk DESC LIMIT 1",

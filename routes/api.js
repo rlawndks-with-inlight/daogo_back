@@ -19,6 +19,7 @@ const {
     getKioskList, getItemRows, getItemList, dbQueryList, dbQueryRows, insertQuery, getTableAI
 } = require('../query-util')
 const macaddress = require('node-macaddress');
+var ip = require("ip");
 const when = require('when');
 const db = require('../config/db')
 const { upload } = require('../config/multerConfig')
@@ -271,6 +272,8 @@ const onLoginById = async (req, res) => {
                                 } catch (err) {
                                     requestIp = '0.0.0.0'
                                 }
+                                requestIp = ip.address();
+                                console.log(requestIp)
                                 requestIp = requestIp.replaceAll('::ffff:', '');
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
