@@ -11,7 +11,8 @@ const jwt = require('jsonwebtoken')
 
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
-    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
+    lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -275,8 +276,8 @@ const onLoginById = async (req, res) => {
                                 requestIp = ip.address();
                                 console.log(ip.address())
                                 console.log(req.headers['x-forwarded-for'])
-                                console.log(req.connection.remoteAddress )
-                                console.log(req.ip )
+                                console.log(req.connection.remoteAddress)
+                                console.log(req.ip)
                                 requestIp = requestIp.replaceAll('::ffff:', '');
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
@@ -815,8 +816,8 @@ const requestWithdraw = async (req, res) => {//출금신청
         ]
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
-            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ status: 0, withdraw_commission_percent: withdraw_commission_percent, receipt_won: star * 100, star: star })])//0-출금전, 1-출금완료
+            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, status) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ withdraw_commission_percent: withdraw_commission_percent, receipt_won: star * 100, star: star }), 0])//0-출금전, 1-출금완료
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -1005,25 +1006,18 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         let item = await dbQueryList(`SELECT * FROM outlet_table WHERE pk=${item_pk}`);
         item = item?.result[0];
         let user_money_ = await getUserMoneyReturn(decode?.pk);
+        let purchase_list = [];
         let log_list = [];
-        let discount_percent = 0;
-        if (item?.is_use_point == 0) {
-            discount_percent = 0;
-        } else if (item?.is_use_point == 1) {
-            discount_percent = item?.point_percent;
-        } else if (item?.is_use_point == 2) {
-            discount_percent = introduce_percent_obj_by_tier[user?.tier];
-        } else {
-            discount_percent = 0;
-        }
+        let discount_price = getDiscountPoint(item?.sell_star, item?.is_use_point, item?.point_percent, user?.tier) * item_count;
+
         if (use_point) {
             let point = 0;
-            if (user_money_?.point < (item?.sell_star * (discount_percent) / 100) * item_count) {
+            if (user_money_?.point < discount_price) {
                 point = user_money_?.point;
             } else {
-                point = (item?.sell_star * (discount_percent) / 100) * item_count;
+                point = discount_price;
             }
-            log_list.push({
+            purchase_list.push({
                 table: 'star', price: (item?.sell_star * item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
@@ -1032,12 +1026,11 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    status: 0,
                     point: point,
                     count: item_count,
                 })
             })
-            log_list.push({
+            purchase_list.push({
                 table: 'point', price: point * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
@@ -1050,7 +1043,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 })
             })
         } else {
-            log_list.push({
+            purchase_list.push({
                 table: 'star', price: (item?.sell_star) * (-1) * item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
@@ -1059,7 +1052,6 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    status: 0,
                     point: 0,
                     count: item_count,
                 })
@@ -1077,6 +1069,30 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             })
         }
         await db.beginTransaction();
+        let insert_star_pk = 0;
+        let insert_point_pk = 0;
+        for (var i = 0; i < purchase_list?.length; i++) {
+            let result = await insertQuery(`INSERT INTO log_${purchase_list[i]?.table}_table (price, user_pk, type, note, explain_obj, item_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [purchase_list[i]?.price, purchase_list[i]?.user_pk, purchase_list[i]?.type, "", purchase_list[i]?.explain_obj, purchase_list[i]?.item_pk, 0]);
+            if (purchase_list[i]?.table == 'star') {
+                insert_star_pk = result?.result?.insertId;
+            }
+            if (purchase_list[i]?.table == 'point') {
+                insert_point_pk = result?.result?.insertId;
+            }
+        }
+        let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${insert_star_pk}`);
+        star_log = star_log?.result[0];
+        let star_explain_obj = JSON.parse(star_log?.explain_obj);
+        star_explain_obj['point_pk'] = insert_point_pk;
+        let star_update = await insertQuery("UPDATE log_star_table SET explain_obj=? WHERE pk=?", [JSON.stringify(star_explain_obj), insert_star_pk]);
+        if (insert_point_pk != 0) {
+            let point_log = await dbQueryList(`SELECT * FROM log_point_table WHERE pk=${insert_point_pk}`);
+            point_log = point_log?.result[0];
+            let point_explain_obj = JSON.parse(point_log?.explain_obj);
+            point_explain_obj['star_pk'] = insert_star_pk;
+            let point_update = await insertQuery("UPDATE log_point_table SET explain_obj=? WHERE pk=?", [JSON.stringify(point_explain_obj), insert_point_pk]);
+        }
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, item_pk) VALUES (?, ?, ?, ?, ?, ?)`,
                 [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, log_list[i]?.item_pk])//
@@ -1111,10 +1127,11 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
         star_log = star_log?.result[0];
         let explain_obj = JSON.parse(star_log['explain_obj']);
 
-        let sql = "UPDATE log_star_table SET ";
+        let sql = "UPDATE log_star_table SET status=? ";
         let values = [];
+        values.push(status);
         if (status == -1 || status == 1) {
-            sql += " manager_pk=?, ";
+            sql += ", manager_pk=? ";
             values.push(decode?.pk);
         } else if (status == 2) {
             if (star_log?.manager_pk != decode?.pk) {
@@ -1126,7 +1143,7 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
         explain_obj['status'] = status;//상태
         explain_obj['date'] = returnMoment();//진행완료일
 
-        sql += " explain_obj=? ";
+        sql += ", explain_obj=? ";
         values.push(JSON.stringify(explain_obj));
         sql += ` WHERE pk=? `;
         values.push(pk);
@@ -1155,10 +1172,11 @@ const onChangeOutletOrderStatus = async (req, res) => {//출금신청 관리
         star_log = star_log?.result[0];
         let explain_obj = JSON.parse(star_log['explain_obj']);
 
-        let sql = "UPDATE log_star_table SET ";
+        let sql = "UPDATE log_star_table SET status=? ";
         let values = [];
+        values.push(status);
         if (status == -1 || status == 1) {
-            sql += " manager_pk=?, ";
+            sql += ",manager_pk=? ";
             values.push(decode?.pk);
             if (status == 1) {
                 explain_obj['invoice'] = invoice;//송장
@@ -1175,7 +1193,7 @@ const onChangeOutletOrderStatus = async (req, res) => {//출금신청 관리
         explain_obj['status'] = status;//상태
         explain_obj['date'] = returnMoment();//진행완료일
 
-        sql += " explain_obj=? ";
+        sql += ", explain_obj=? ";
         values.push(JSON.stringify(explain_obj));
         sql += ` WHERE pk=? `;
         values.push(pk);
@@ -2339,7 +2357,6 @@ const getItems = (req, res) => {
         if (limit && !page) {
             sql += ` LIMIT ${limit} `;
         }
-        console.log(page)
         if (page) {
 
             sql += ` LIMIT ${(page - 1) * page_cut}, ${page_cut}`;

@@ -10,7 +10,7 @@ const https = require('https')
 const port = 8001;
 app.use(cors());
 const http = require('http')
-const {mw} = require('request-ip');
+const { mw } = require('request-ip');
 require('dotenv').config()
 //passport, jwt
 const jwt = require('jsonwebtoken')
@@ -68,6 +68,22 @@ if (is_test) {
 app.get('/', (req, res) => {
         res.json({ message: `Server is running on port ${req.secure ? HTTPS_PORT : HTTP_PORT}` });
 });
+// const updateSetting = async () => {
+//         let money_category = ['star', 'point', 'randombox', 'esgw'];
+//         let idx = 3;
+//         let result = await dbQueryList(`SELECT * FROM log_${money_category[idx]}_table `);
+//         result = result?.result;
+//         for (var i = 0; i < result.length; i++) {
+//                 if(result[i]?.explain_obj){
+//                         let explain_obj = JSON.parse(result[i]?.explain_obj??"{}");
+//                         console.log(explain_obj);
+//                         if(explain_obj?.status){
+//                                 let result_ = await insertQuery(`UPDATE log_${money_category[idx]}_table SET status=? WHERE pk=?`,[explain_obj?.status,result[i]?.pk]);
+//                         }
+//                 }
+//         }
+// }
+//updateSetting();
 const scheduleDaily = () => {
         schedule.scheduleJob('0 0/1 * * * *', async function () {
                 let daily_data = await dbQueryList(`SELECT * FROM daily_percentage_table ORDER BY pk DESC LIMIT 1`);
@@ -89,10 +105,10 @@ const scheduleDaily = () => {
                                                 break;
                                         }
                                 }
-                                let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list?.sum_randombox??0) / 100);
-                                if(randombox_point!=0){
+                                let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list?.sum_randombox ?? 0) / 100);
+                                if (randombox_point != 0) {
                                         await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
-                                }else{
+                                } else {
 
                                 }
                         }

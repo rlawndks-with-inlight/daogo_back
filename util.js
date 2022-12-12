@@ -7,7 +7,7 @@ const fcmNode = require("fcm-node");
 const serviceAccount = require("./config/privatekey_firebase.json");
 const { insertQuery, dbQueryList } = require('./query-util');
 const when = require('when')
-var ip =require('ip');
+var ip = require('ip');
 const requestIp = require('request-ip');
 const firebaseToken = 'fV0vRpDpTfCnY_VggFEgN7:APA91bHdHP6ilBpe9Wos5Y72SXFka2uAM3luANewGuw7Bx2XGnvUNjK5e5k945xwcXpW8NNei3LEaBtKT2_2A6naix8Wg5heVik8O2Aop_fu8bUibnGxuCe3RLQDtHNrMeC5gmgGRoVh';
 const fcmServerKey = "AAAA35TttWk:APA91bGLGZjdD2fgaPRh8eYyu9CDSndD97ZdO4MBypbpICClEwMADAJnt2giOaCWRvMldof5DkplMptbmyN0Fm0Q975dm-CD7i0XhrHzjgMN0EKfXHxLy4NyohEVXDHW5DBfYrlncvQh";
@@ -397,37 +397,53 @@ const getEventRandomboxPercentByTier = (num) => {
 const getKewordListBySchema = (schema_) => {
     let schema = schema_;
     let list = [];
-    if(schema=='user'){
+    if (schema == 'user') {
         list = ['id', 'name', 'phone'];
-    }else if(schema=='user_subscriptiondeposit'){
+    } else if (schema == 'user_subscriptiondeposit') {
         list = ['id', 'name', 'phone'];
-    }else if(schema=='marketing'){
+    } else if (schema == 'marketing') {
         list = ['u_u.id', 'u_u.name'];
-    }else if(schema=='log_star'){
+    } else if (schema == 'log_star') {
         list = ['user_table.id', 'user_table.name'];
-    }else if(schema=='log_point'){
+    } else if (schema == 'log_point') {
         list = ['user_table.id', 'user_table.name'];
-    }else if(schema=='log_randombox'){
+    } else if (schema == 'log_randombox') {
         list = ['user_table.id', 'user_table.name'];
-    }else if(schema=='main_banner'){
+    } else if (schema == 'main_banner') {
         list = ['link'];
-    }else if(schema=='notice'){
+    } else if (schema == 'notice') {
         list = ['title'];
-    }else if(schema=='log_login'){
-        list = ['user_id','user_name','ip'];
-    }else if(schema=='log_manager_action'){
-        list = ['user_table.id','user_table.name'];
-    }else if(schema=='exchange'){
-        list = ['user_table.id','user_table.name','user_table.zip_code','user_table.bank_name','user_table.account_number','user_table.account_name'];
-    }else{
+    } else if (schema == 'log_login') {
+        list = ['user_id', 'user_name', 'ip'];
+    } else if (schema == 'log_manager_action') {
+        list = ['user_table.id', 'user_table.name'];
+    } else if (schema == 'exchange') {
+        list = ['u_u.id', 'u_u.name', 'u_u.zip_code', 'u_u.bank_name', 'u_u.account_number', 'u_u.account_name'];
+    } else {
         link = [];
     }
     return list;
+}
+const getDiscountPoint = (item_price, is_use_point, point_percent, tier) => {
+    console.log(item_price)
+    console.log(is_use_point)
+    console.log(tier)
+    let introduce_percent_list = [0, 6, 7, 8, 9, 10];
+    if (is_use_point == 0) {
+        return 0;
+    } else if (is_use_point == 1) {
+        return point_percent;
+    } else if (is_use_point == 2) {
+        return item_price * introduce_percent_list[tier / 5] / 100;
+    } else {
+        return 0;
+    }
 }
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams, getKewordListBySchema,
-    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber, categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier
+    nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint
 }
