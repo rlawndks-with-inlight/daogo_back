@@ -439,11 +439,40 @@ const getDiscountPoint = (item_price, is_use_point, point_percent, tier) => {
         return 0;
     }
 }
+const commarNumber = (num) => {
+    if (!num && num != 0) {
+        return undefined;
+    }
+    let str = "";
+    if (typeof num == "string") {
+        str = num;
+    } else {
+        str = num.toString();
+    }
+    let decimal = "";
+    if (str.includes(".")) {
+        decimal = "." + str.split(".")[1].substring(0, 2);
+        str = str.split(".")[0];
+    } else {
+        decimal = "";
+    }
+    if (str?.length <= 3) {
+        return str;
+    }
+    let result = "";
+    let count = 0;
+    for (var i = str?.length - 1; i >= 0; i--) {
+        if (count % 3 == 0 && count != 0 && !isNaN(parseInt(str[i]))) result = "," + result;
+        result = str[i] + result;
+        count++;
+    }
+    return result + decimal;
+}
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber
 }

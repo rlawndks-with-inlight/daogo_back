@@ -4,7 +4,7 @@ const router = express.Router()
 const cors = require('cors')
 router.use(cors())
 router.use(express.json())
-
+const { _ } = require('lodash');
 const crypto = require('crypto')
 //const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
@@ -12,7 +12,7 @@ const jwt = require('jsonwebtoken')
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -502,7 +502,7 @@ const getUserMoney = async (req, res) => {
             sql_list.push({ table: "star_to_randombox", sql: `SELECT SUM(price) AS star_to_randombox FROM log_star_table WHERE user_pk=${pk} AND type=2 ` })
         }
         if (req?.query?.type == 'withdrawrequest') {
-            sql_list.push({ table: "withdraw_commission_percent", sql: `SELECT withdraw_commission_percent FROM setting_table ORDER BY pk DESC LIMIT 1` })
+            sql_list.push({ table: "withdraw_setting", sql: `SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`,type:'obj' })
         }
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql));
@@ -513,7 +513,7 @@ const getUserMoney = async (req, res) => {
         let result = (await when(result_list));
         let obj = {};
         for (var i = 0; i < (await result).length; i++) {
-            if ((await result[i])?.table == 'user') {
+            if ((await result[i])?.table == 'user' || (await result[i])?.table == 'withdraw_setting' ) {
                 obj[(await result[i])?.table] = { ...(await result[i])?.data[0] };
             } else {
                 obj[(await result[i])?.table] = (await result[i])?.data[0][(await result[i])?.table] ?? 0;
@@ -809,8 +809,14 @@ const requestWithdraw = async (req, res) => {//출금신청
         if (insert_payment_pw?.data !== user?.payment_pw) {
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
-        let withdraw_commission_percent = await dbQueryList(`SELECT withdraw_commission_percent FROM setting_table ORDER BY pk DESC LIMIT 1`);
-        withdraw_commission_percent = withdraw_commission_percent?.result[0]?.withdraw_commission_percent;
+
+        let withdraw_setting = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
+        withdraw_setting = withdraw_setting?.result[0];
+        console.log(withdraw_setting)
+        if(star > withdraw_setting[`withdraw_${user?.tier}`]){
+            return response(req, res, -100, `최대 출금 신청 금액은 수수료 제외 ${commarNumber(withdraw_setting[`withdraw_${user?.tier}`])} 스타 입니다.`, []);
+        }
+        withdraw_commission_percent = withdraw_setting?.withdraw_commission_percent;
         let log_list = [
             { table: 'star', price: (star + star * withdraw_commission_percent / 100) * (-1), user_pk: decode?.pk, type: 4 },
         ]
@@ -920,6 +926,20 @@ const subscriptionDeposit = async (req, res) => {//청약예치금 등록
         if (negative_result) {
             await db.rollback();
             return response(req, res, -200, "유저의 금액은 마이너스가 될 수 없습니다.", []);
+        }
+        let money_category = [{ category: 'star', kor: '스타', max: 60000 }, { category: 'esgw', kor: 'ESGW 포인트', max: 30000 }, { category: 'point', kor: '포인트', max: 10000 }];
+        let user_subscriptiondeposit_sql = "SELECT pk";
+        for (var i = 0; i < money_category.length; i++) {
+            user_subscriptiondeposit_sql += `, (SELECT SUM(price) FROM log_${money_category[i].category}_table WHERE user_pk=${decode?.pk} AND type=8) AS ${money_category[i].category} `
+        }
+        user_subscriptiondeposit_sql += ` FROM user_table WHERE pk=${decode?.pk} `;
+        let user_subscriptiondeposit = await dbQueryList(user_subscriptiondeposit_sql);
+        user_subscriptiondeposit = user_subscriptiondeposit?.result[0];
+        for (var i = 0; i < money_category.length; i++) {
+            if (user_subscriptiondeposit[money_category[i].category] * (-1) > money_category[i].max) {
+                await db.rollback();
+                return response(req, res, -100, `${money_category[i].kor}가 가능한 청약예치금 금액을 초과 하였습니다.`, []);
+            }
         }
         await updateUserTier(decode?.pk);
         await db.commit();
@@ -1126,13 +1146,21 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
         let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
         star_log = star_log?.result[0];
         let explain_obj = JSON.parse(star_log['explain_obj']);
-
+        await db.beginTransaction();
         let sql = "UPDATE log_star_table SET status=? ";
         let values = [];
         values.push(status);
         if (status == -1 || status == 1) {
             sql += ", manager_pk=? ";
             values.push(decode?.pk);
+            if(status==-1){//다시 지급
+                let log_list = [{table:'star',price:star_log?.price*(-1),user_pk:star_log?.user_pk,type:4,manager_pk:decode?.pk}];
+                for (var i = 0; i < log_list?.length; i++) {
+                    let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "",JSON.stringify({}),log_list[i]?.manager_pk, -1])//
+                }
+                
+            }
         } else if (status == 2) {
             if (star_log?.manager_pk != decode?.pk) {
                 return response(req, res, -100, "담당자가 일치하지 않습니다.", []);
@@ -1148,6 +1176,7 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
         sql += ` WHERE pk=? `;
         values.push(pk);
         let result = insertQuery(sql, values);
+        await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
         console.log(err)
@@ -1157,7 +1186,7 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
 
     }
 }
-const onChangeOutletOrderStatus = async (req, res) => {//출금신청 관리
+const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
     try {
         const { pk, status, invoice, return_reason } = req.body;
         if (!pk || !status) {
@@ -1181,7 +1210,25 @@ const onChangeOutletOrderStatus = async (req, res) => {//출금신청 관리
             if (status == 1) {
                 explain_obj['invoice'] = invoice;//송장
             } else {
+                    let log_list = [{table:'star',price:star_log?.price*(-1),user_pk:star_log?.user_pk,type:0,manager_pk:decode?.pk}];
+                    if(explain_obj?.point>0){
+                        let point_log = await dbQueryList(`SELECT * FROM log_point_table WHERE pk=${explain_obj?.point_pk}`);
+                        point_log = point_log?.result[0];
+                        log_list.push({
+                            table:'point',
+                            price:point_log?.price*(-1),
+                            user_pk:star_log?.user_pk,
+                            type:0,
+                            manager_pk:decode?.pk,
+                        })
+                        console.log(log_list)
+                        for (var i = 0; i < log_list?.length; i++) {
+                            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "",JSON.stringify({point:explain_obj?.point}),log_list[i]?.manager_pk, -1])//
+                        }
+                    }
                 explain_obj['return_reason'] = return_reason;//반송사유
+
             }
         } else if (status == 2) {
             if (star_log?.manager_pk != decode?.pk) {
@@ -1790,7 +1837,10 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
 }
 const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적, 소실적 구하기
     let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
+    let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
+    marketing_list = marketing_list?.result;
     let list = [...list_];
+    //console.log(JSON.stringify(list))
     let decode = { ...decode_ };
     let genealogy_score_list = [];
     for (var i = 0; i < list[decode?.depth + 1][decode?.pk].length; i++) {
@@ -1798,12 +1848,22 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
         let score = 0;
         for (var j = 0; j < max_child_depth(); j++) {
             for (var k = 0; k < Object.keys(score_list[j]).length; k++) {
-                console.log(score_list[j][Object.keys(score_list[j])[k]])
-                score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (get_score_by_tier[b['tier']] || 0), 0);
+                //console.log(score_list[j][Object.keys(score_list[j])[k]]);
+                let marketing_user_list = await marketing_list.map((item) => {
+                    if (score_list[j][Object.keys(score_list[j])[k]].map((itm) => { return itm?.pk }).includes(item?.user_pk)) {
+                        //console.log(JSON?.parse(item?.explain_obj)?.tier??0)
+                        score += get_score_by_tier[JSON?.parse(item?.explain_obj)?.tier ?? 0]
+                    } else {
+
+                    }
+                })
+                //console.log(score_list[j][Object.keys(score_list[j])[k]].map((item)=>{return item?.pk}));
+                //score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (get_score_by_tier[b['tier']] || 0), 0);
             }
         }
         await genealogy_score_list.push(score);
     }
+    console.log(genealogy_score_list)
     let great = 0;
     let loss = 0;
     great = Math.max.apply(null, genealogy_score_list);
@@ -2290,7 +2350,9 @@ const getItems = (req, res) => {
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
             whereStr += `AND log_star_table.type=0 `;
             if (decode?.user_level < 40) {
-                whereStr += `AND user_pk=${decode?.pk} `;
+                whereStr += `AND user_pk=${decode?.pk} AND log_star_table.price < 0 `;
+            }else{
+                whereStr += `AND log_star_table.price < 0 `;
             }
         }
         if (table == 'log_manager_action') {
@@ -2316,6 +2378,8 @@ const getItems = (req, res) => {
             whereStr += ` AND log_star_table.type=4 `;
             if (decode.user_level < 40) {
                 whereStr += `AND u_u.pk=${decode.pk}`;
+            }else{
+                whereStr += `AND log_star_table.price < 0 `;
             }
         }
         if (table == 'log_withdraw') {
@@ -2463,9 +2527,9 @@ const getRandomboxRollingHistory = async (req, res) => {
             // {table:"randombox",sql:""},
             //  {table:"star",sql:""},
             // {table:"point",sql:""},
-            { table: "star", sql: `SELECT *, '스타' AS category  FROM log_star_table WHERE type=7 AND user_pk=${decode?.pk}`, type: 'list' },
-            { table: "point", sql: `SELECT *, '포인트' AS category  FROM log_point_table WHERE type=7 AND user_pk=${decode?.pk} `, type: 'list' },
-            { table: "randombox", sql: `SELECT *, '랜덤박스 포인트' AS category  FROM log_randombox_table WHERE type=7 AND user_pk=${decode?.pk} `, type: 'list' },
+            { table: "star", sql: `SELECT *, '스타' AS category  FROM log_star_table WHERE type=11 AND user_pk=${decode?.pk}`, type: 'list' },
+            { table: "point", sql: `SELECT *, '포인트' AS category  FROM log_point_table WHERE type=11 AND user_pk=${decode?.pk} `, type: 'list' },
+            { table: "randombox", sql: `SELECT *, '랜덤박스 포인트' AS category  FROM log_randombox_table WHERE type=11 AND user_pk=${decode?.pk} `, type: 'list' },
         ];
         for (var i = 0; i < sql_list.length; i++) {
             if (increase) {
@@ -2521,8 +2585,10 @@ const updateSetting = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } else {
-            const { withdraw_commission_percent, pk } = req.body;
-            db.query('UPDATE setting_table SET withdraw_commission_percent=?  WHERE pk=?', [withdraw_commission_percent, pk], (err, result) => {
+            const { withdraw_commission_percent, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk } = req.body;
+            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?  WHERE pk=?';
+            values = [withdraw_commission_percent, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk];
+            db.query(sql, values, (err, result) => {
                 if (err) {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
