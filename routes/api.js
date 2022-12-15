@@ -12,7 +12,7 @@ const jwt = require('jsonwebtoken')
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -613,7 +613,7 @@ const updateUserSubscriptionDepositByManager = async (req, res) => {//관리자�
         if (edit_list?.length > 0) {
             for (var i = 0; i < edit_list?.length; i++) {
                 let result1 = await insertQuery(`INSERT INTO log_${edit_list[i]?.type}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                    [edit_list[i]?.price*(-1), pk, 8, edit_list[i]?.note, explain_obj])
+                    [edit_list[i]?.price * (-1), pk, 8, edit_list[i]?.note, explain_obj])
                 let result2 = await insertQuery(`INSERT INTO log_${edit_list[i]?.type}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
                     [edit_list[i]?.price, pk, 5, "관리자의 청약예치금 수정에 의한 반환", explain_obj])
             }
@@ -785,19 +785,19 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         ]
         let parent_user_list = await getParentUserList(decode)
         for (var i = 0; i < parent_user_list?.length; i++) {
-            if (parent_user_list[i]?.pay_user_count >= 10 && (parent_user_list[i]?.depth - decode?.depth <= 15)) {
+            if (parent_user_list[i]?.pay_user_count >= 10 && (decode?.depth - parent_user_list[i]?.depth <= 15)) {
                 if (parent_user_list[i]?.tier > 0) {
                     log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            } else if (parent_user_list[i]?.pay_user_count >= 5 && (parent_user_list[i]?.depth - decode?.depth <= 10)) {
+            } else if (parent_user_list[i]?.pay_user_count >= 5 && (decode?.depth - parent_user_list[i]?.depth <= 10)) {
                 if (parent_user_list[i]?.tier > 0) {
                     log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            } else if (parent_user_list[i]?.pay_user_count >= 3 && (parent_user_list[i]?.depth - decode?.depth <= 5)) {
+            } else if (parent_user_list[i]?.pay_user_count >= 3 && (decode?.depth - parent_user_list[i]?.depth <= 5)) {
                 if (parent_user_list[i]?.tier > 0) {
                     log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
-            } else if (parent_user_list[i]?.pay_user_count >= 1 && (parent_user_list[i]?.depth - decode?.depth <= 2)) {
+            } else if (parent_user_list[i]?.pay_user_count >= 1 && (decode?.depth - parent_user_list[i]?.depth <= 2)) {
                 if (parent_user_list[i]?.tier > 0) {
                     log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
                 }
@@ -829,7 +829,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
 
     }
 }
-
+console.log(returnMoment().substring(11, 16))
 const requestWithdraw = async (req, res) => {//출금신청
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -837,6 +837,15 @@ const requestWithdraw = async (req, res) => {//출금신청
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let { star, payment_pw } = req.body;
+        let withdraw_setting = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
+        withdraw_setting = withdraw_setting?.result[0];
+        let moment_time = returnMoment().substring(11, 16);
+        if (moment_time >= withdraw_setting?.withdraw_start_time && moment_time <= withdraw_setting?.withdraw_end_time) {
+
+        } else {
+            return response(req, res, -100, `출금 시간이 아닙니다. \n출금가능시간: ${withdraw_setting?.withdraw_start_time} ~ ${withdraw_setting?.withdraw_end_time}`, []);
+        }
+
         if (star < 500) {
             return response(req, res, -100, "스타는 500 이상의 금액부터 등록 가능합니다.", []);
         }
@@ -850,8 +859,7 @@ const requestWithdraw = async (req, res) => {//출금신청
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
 
-        let withdraw_setting = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
-        withdraw_setting = withdraw_setting?.result[0];
+
         console.log(withdraw_setting)
         if (star > withdraw_setting[`withdraw_${user?.tier}`]) {
             return response(req, res, -100, `최대 출금 신청 금액은 수수료 제외 ${commarNumber(withdraw_setting[`withdraw_${user?.tier}`])} 스타 입니다.`, []);
@@ -1071,9 +1079,12 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         let purchase_list = [];
         let log_list = [];
         let discount_price = getDiscountPoint(item?.sell_star, item?.is_use_point, item?.point_percent, user?.tier) * item_count;
+        // 스타 인설트
+        //자기 위에 회원 포인트 받기
+        //자신 랜덤박스 포인트 받기, 포인트 깎이기
+        let point = 0;
 
         if (use_point) {
-            let point = 0;
             if (user_money_?.point < discount_price) {
                 point = user_money_?.point;
             } else {
@@ -1092,18 +1103,6 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     count: item_count,
                 })
             })
-            purchase_list.push({
-                table: 'point', price: point * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
-                    request: request,
-                    name: name,
-                    phone: phone,
-                    zip_code: zip_code,
-                    address: address,
-                    address_detail: address_detail,
-                    refer: refer,
-                    count: item_count,
-                })
-            })
         } else {
             purchase_list.push({
                 table: 'star', price: (item?.sell_star) * (-1) * item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
@@ -1119,30 +1118,61 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 })
             })
         }
-        let parent_list = await getParentUserList(decode);
-        if (parent_list[0]?.tier > user?.tier) {
-            log_list.push({
-                table: 'randombox', price: (item?.sell_star) * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100), user_pk: parent_list[0]?.pk, type: 12, item_pk: item?.pk, explain_obj: JSON.stringify({
-                    item_pk: item?.pk,
-                    item_name: item?.name,
-                    user_pk: decode?.pk,
-                    user_id: decode?.id,
-                })
-            })
-        }
         await db.beginTransaction();
         let insert_star_pk = 0;
-        let insert_point_pk = 0;
+
         for (var i = 0; i < purchase_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${purchase_list[i]?.table}_table (price, user_pk, type, note, explain_obj, item_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [purchase_list[i]?.price, purchase_list[i]?.user_pk, purchase_list[i]?.type, "", purchase_list[i]?.explain_obj, purchase_list[i]?.item_pk, 0]);
             if (purchase_list[i]?.table == 'star') {
                 insert_star_pk = result?.result?.insertId;
             }
-            if (purchase_list[i]?.table == 'point') {
-                insert_point_pk = result?.result?.insertId;
-            }
         }
+        if (use_point) {//포인트 사용 시 포인트 깎이기
+            log_list.push({
+                table: 'point', price: point * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    request: request,
+                    name: name,
+                    phone: phone,
+                    zip_code: zip_code,
+                    address: address,
+                    address_detail: address_detail,
+                    refer: refer,
+                    count: item_count,
+                    star_pk: insert_star_pk
+                })
+            })
+        }
+        if (item?.randombox_point > 0) {//랜덤박스 포인트 지급 받을 시 랜덤박스 지급 받음
+            log_list.push({
+                table: 'randombox', price: item?.randombox_point * item_count, user_pk: decode?.pk, type: 13, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    request: request,
+                    name: name,
+                    phone: phone,
+                    zip_code: zip_code,
+                    address: address,
+                    address_detail: address_detail,
+                    refer: refer,
+                    count: item_count,
+                    star_pk: insert_star_pk
+                })
+            })
+        }
+        let parent_list = await getParentUserList(decode);
+        if (parent_list[0]?.tier > user?.tier) {
+            log_list.push({
+                table: 'randombox', price: (item?.sell_star) * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count, user_pk: parent_list[0]?.pk, type: 12, item_pk: item?.pk, explain_obj: JSON.stringify({
+                    item_pk: item?.pk,
+                    item_name: item?.name,
+                    user_pk: decode?.pk,
+                    user_id: decode?.id,
+                    star_pk: insert_star_pk
+                })
+            })
+        }
+
+        let insert_point_pk = 0;
+
         let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${insert_star_pk}`);
         star_log = star_log?.result[0];
         let star_explain_obj = JSON.parse(star_log?.explain_obj);
@@ -1155,6 +1185,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             point_explain_obj['star_pk'] = insert_star_pk;
             let point_update = await insertQuery("UPDATE log_point_table SET explain_obj=? WHERE pk=?", [JSON.stringify(point_explain_obj), insert_point_pk]);
         }
+
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, item_pk) VALUES (?, ?, ?, ?, ?, ?)`,
                 [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, log_list[i]?.item_pk])//
@@ -1241,33 +1272,62 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         }
         let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
         star_log = star_log?.result[0];
+        let sell_user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${star_log?.user_pk}`);
+        sell_user = sell_user?.result[0];
         let explain_obj = JSON.parse(star_log['explain_obj']);
 
         let sql = "UPDATE log_star_table SET status=? ";
         let values = [];
         values.push(status);
+        await db.beginTransaction();
+        let user_list = [star_log?.user_pk];
+
         if (status == -1 || status == 1) {
             sql += ",manager_pk=? ";
             values.push(decode?.pk);
             if (status == 1) {
                 explain_obj['invoice'] = invoice;//송장
             } else {
-                let log_list = [{ table: 'star', price: star_log?.price * (-1), user_pk: star_log?.user_pk, type: 0, manager_pk: decode?.pk }];
-                if (explain_obj?.point > 0) {
-                    let point_log = await dbQueryList(`SELECT * FROM log_point_table WHERE pk=${explain_obj?.point_pk}`);
-                    point_log = point_log?.result[0];
+                let log_list = [{ table: 'star', price: star_log?.price * (-1), user_pk: star_log?.user_pk, type: 0, manager_pk: decode?.pk, explain_obj: JSON.stringify({ point: explain_obj?.point }) }];
+                let point_log = await dbQueryList(`SELECT * FROM log_point_table WHERE type=0 AND user_pk=${star_log?.user_pk} AND explain_obj LIKE '%star_pk":${pk}%'`);
+                point_log = point_log?.result;
+                let randombox_log = await dbQueryList(`SELECT * FROM log_randombox_table WHERE (type=12 OR type=13) AND explain_obj LIKE '%"star_pk":${pk}%'`);
+                randombox_log = randombox_log?.result;
+                for (var i = 0; i < point_log.length; i++) {
                     log_list.push({
                         table: 'point',
-                        price: point_log?.price * (-1),
+                        price: point_log[i]?.price * (-1),
                         user_pk: star_log?.user_pk,
                         type: 0,
                         manager_pk: decode?.pk,
+                        explain_obj: JSON.stringify({})
                     })
-                    console.log(log_list)
-                    for (var i = 0; i < log_list?.length; i++) {
-                        let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                            [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", JSON.stringify({ point: explain_obj?.point }), log_list[i]?.manager_pk, -1])//
+                }
+                for (var i = 0; i < randombox_log.length; i++) {
+                    if (randombox_log[i]?.type == 13) {
+                        user_list.push(randombox_log[i]?.user_pk);
+                        log_list.push({
+                            table: 'randombox',
+                            price: randombox_log[i]?.price * (-1),
+                            user_pk: randombox_log[i]?.user_pk,
+                            type: randombox_log[i]?.type,
+                            manager_pk: decode?.pk,
+                            explain_obj: JSON.stringify({})
+                        })
+                    } else {
+                        log_list.push({
+                            table: 'randombox',
+                            price: randombox_log[i]?.price * (-1),
+                            user_pk: randombox_log[i]?.user_pk,
+                            type: randombox_log[i]?.type,
+                            manager_pk: decode?.pk,
+                            explain_obj: JSON.stringify({ user_pk: star_log?.user_pk, user_id: sell_user?.id })
+                        })
                     }
+                }
+                for (var i = 0; i < log_list?.length; i++) {
+                    let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, log_list[i]?.manager_pk, -1])//
                 }
                 explain_obj['return_reason'] = return_reason;//반송사유
 
@@ -1287,6 +1347,10 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         sql += ` WHERE pk=? `;
         values.push(pk);
         let result = insertQuery(sql, values);
+        for (var i = 0; i < user_list.length; i++) {
+            await updateUserTier(user_list[i]);
+        }
+        await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
         console.log(err)
@@ -2417,7 +2481,7 @@ const getItems = (req, res) => {
             sql += ` ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk=user_table.pk`;
             if (decode.user_level < 40) {
                 whereStr += `AND user_pk=${decode.pk}`;
-            }else{
+            } else {
                 whereStr += ' AND type=8 '
             }
         }
@@ -2501,6 +2565,64 @@ const getItems = (req, res) => {
                     return response(req, res, 100, "success", result)
                 }
             })
+        }
+    } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const getSubscriptionDepositHistory = async(req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", []);
+        }
+        let {page_cut, page} = req.body;
+        if(!page_cut){
+            page_cut = page_cut;
+        }
+        if(!page){
+            page = 1;
+        }
+        let result_list = [];
+        let obj = {};
+        let sql_list = [
+            // {table:"randombox",sql:""},
+            //  {table:"star",sql:""},
+            // {table:"point",sql:""},
+            { table: "star", sql: `SELECT log_star_table.*, '스타' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk WHERE log_star_table.type=8 `, type: 'list' },
+            { table: "point", sql: `SELECT log_point_table.*, '포인트' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_point_table LEFT JOIN user_table ON log_point_table.user_pk=user_table.pk WHERE log_point_table.type=8 `, type: 'list' },
+            { table: "esgw", sql: `SELECT log_esgw_table.*, 'ESGWP' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_esgw_table LEFT JOIN user_table ON log_esgw_table.user_pk=user_table.pk WHERE log_esgw_table.type=8`, type: 'list' },
+        ];
+        
+        for (var i = 0; i < sql_list.length; i++) {
+            result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        for (var i = 0; i < (await result).length; i++) {
+            obj[(await result[i])?.table] = (await result[i])?.data??[];
+        }
+        let list = [...obj?.star,...obj?.point,...obj?.esgw];
+        list = await list.sort(function (a, b) {
+            let x = a.date.toLowerCase();
+            let y = b.date.toLowerCase();
+            if (x > y) {
+                return -1;
+            }
+            if (x < y) {
+                return 1;
+            }
+            return 0;
+        });
+        if(req.body.page){
+            let maxPage = makeMaxPage(list?.length, page_cut);
+            let data = list.slice((page-1)*page_cut,page*page_cut);
+            return response(req, res, 100, "success", {maxPage:maxPage,data:data});
+        }else{
+            return response(req, res, 100, "success", list);
         }
     } catch (err) {
         console.log(err)
@@ -2637,9 +2759,9 @@ const updateSetting = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } else {
-            const { withdraw_commission_percent, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk } = req.body;
-            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?  WHERE pk=?';
-            values = [withdraw_commission_percent, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk];
+            const { withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk } = req.body;
+            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_start_time=?, withdraw_end_time=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?  WHERE pk=?';
+            values = [withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk];
             db.query(sql, values, (err, result) => {
                 if (err) {
                     console.log(err)
@@ -2780,7 +2902,7 @@ const updateDailyPercent = (req, res) => {
 
 module.exports = {
     onLoginById, getUserToken, onLogout, checkExistId, checkExistNickname, sendSms, kakaoCallBack, editMyInfo, uploadProfile,//auth
-    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent,//select
+    getUsers, getItems, getItem, getHomeContent, getSetting, getVideo, findIdByPhone, findAuthByIdAndPhone, getComments, getCommentsManager, getDailyPercent, getAddressByText, getAllDataByTables, getGenealogy, getUserMoney, getGiftHistory, getRandomboxRollingHistory, getMyPageContent, getSubscriptionDepositHistory,//select
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
