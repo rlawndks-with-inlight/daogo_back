@@ -13,7 +13,7 @@ const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
     categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, 
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -1000,7 +1000,74 @@ const subscriptionDeposit = async (req, res) => {//청약예치금 등록
 
     }
 }
+const isExistUserParent = async (parent_pk, child_pk, user_obj) =>{
+    let bool = false;
+    let current_user = {...user_obj[child_pk]};
+    while(1){
+        if(current_user['parent_pk'] == parent_pk){
+            bool = true;
+            break;
+        }else{
+            if(!user_obj[current_user['parent_pk']]){
+                break;
+            }else{
+                current_user = {...user_obj[current_user['parent_pk']]};
+            }
+        }
+    } 
+    return bool;
+}
+const getWeekSettleChild = async (req, res) =>{//이번주 산하 유저의 매출액
+    try{
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { pk, page } = req.query;
+        let monday = returnMoment(getMonday(new Date())).substring(0,10) + ' 00:00:00';
+        let sql = "";
+        sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
+        sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
+        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.date >= '${monday}'`;
+        let settle_list = await dbQueryList(sql);
+        settle_list = settle_list?.result;
+        let user_list = await dbQueryList(`SELECT pk, parent_pk, depth FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
+        user_list = user_list?.result;
+        let user_obj = {};
+        for(var i =0;i<user_list.length;i++){
+            user_obj[user_list[i]?.pk] = user_list[i];
+        }
+        let result = [];
+        for(var i = 0;i<settle_list.length;i++){
+            let bool = await isExistUserParent(pk, settle_list[i].user_pk, user_obj);
+            if(bool){
+                result.push(settle_list[i]);
+            }
+        }
+        let maxPage = makeMaxPage(result.length, 20);
+        result = result.slice((page-1)*20, page*20);
+        let user = await dbQueryList(`SELECT id, name FROM user_table WHERE pk=${pk}`);
+        user = user?.result[0];
+        return response(req, res, 100, "success", {user:user, data:result, maxPage:maxPage});
+    }catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
 
+    }
+}
+const onWeekSettle = async(req, res) =>{
+    try{
+
+    }catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const addMarketing = async (req, res) => {//매출등록
     try {
         const decode = checkLevel(req.cookies.token, 40);
@@ -2986,5 +3053,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle
 };

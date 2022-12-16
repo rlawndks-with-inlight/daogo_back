@@ -375,8 +375,11 @@ function nullResponse(req, res) {
 function lowLevelResponse(req, res) {
     response(req, res, -200, "권한이 없습니다", [])
 }
-const returnMoment = () => {
+const returnMoment = (d) => {
     var today = new Date();
+    if(d){
+        today = d;
+    }
     var year = today.getFullYear();
     var month = ('0' + (today.getMonth() + 1)).slice(-2);
     var day = ('0' + today.getDate()).slice(-2);
@@ -475,17 +478,23 @@ const makeMaxPage = (num, page_cut) => {
         return parseInt(num / page_cut) + 1;
     }
 }
-const discountOutletList = (tier) =>{
-    let discount_percent_list = [5,6,7,8,9,10];
-    return discount_percent_list[tier/5];
+const discountOutletList = (tier) => {
+    let discount_percent_list = [5, 6, 7, 8, 9, 10];
+    return discount_percent_list[tier / 5];
 }
-const discountOutlet = (price, tier) =>{
-    let discount_percent_list = [5,6,7,8,9,10];
+const discountOutlet = (price, tier) => {
+    let discount_percent_list = [5, 6, 7, 8, 9, 10];
     let result = parseFloat(price);
     console.log(result)
     console.log(tier)
-    result = result*(discount_percent_list[tier/5]/100);
+    result = result * (discount_percent_list[tier / 5] / 100);
     return result;
+}
+function getMonday(d) {
+    d = new Date(d);
+    var day = d.getDay(),
+        diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
 }
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
@@ -493,6 +502,6 @@ module.exports = {
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, 
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday
 }

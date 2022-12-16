@@ -7,7 +7,7 @@ const {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle
 } = require('./api')
 
 router.post('/addalarm', addAlarm);
@@ -60,6 +60,8 @@ router.get('/randomboxrollinghistory', getRandomboxRollingHistory);
 router.post('/onchangeexchangestatus', onChangeExchangeStatus);
 router.post('/onchangeoutletorderstatus', onChangeOutletOrderStatus);
 router.post('/initializationidcard', initializationIdCard);
+router.get('/getweeksettlechild', getWeekSettleChild);
+router.post('/onweeksettle', onWeekSettle);
 //router.post('/addvideo', addVideo);
 //router.post('/updatevideo', updateVideo);
 //router.post('/addnotice', addNotice);
@@ -78,7 +80,7 @@ router.post('/getsubscriptiondeposithistory', getSubscriptionDepositHistory);
 router.get('/item', getItem);
 router.get('/gethomecontent', getHomeContent);
 router.get('/getmypagecontent', getMyPageContent);
-router.post('/updatesetting',  updateSetting);
+router.post('/updatesetting', updateSetting);
 router.post('/addsetting', upload.single('master'), addSetting);
 router.post('/updatestatus', updateStatus);
 //router.get('/getvideocontent', getVideoContent);
