@@ -830,7 +830,6 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
 
     }
 }
-console.log(returnMoment().substring(11, 16))
 const requestWithdraw = async (req, res) => {//출금신청
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -1354,6 +1353,43 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const addMonthSettle = async (req, res) =>{
+    try{
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let {price, percent, user_prider_list} = req.body;
+        console.log(req.body);
+        if(!price || !percent || !user_prider_list){
+            return response(req, res, -100, "필수 값이 비어 있습니다.", []);
+        }
+        let user_list_sql = "SELECT * FROM user_table WHERE "
+        for(var i = 0;i<user_prider_list.length;i++){
+            user_list_sql += ` prider=${user_prider_list[i]} OR`;
+        }
+        user_list_sql = user_list_sql.substring(0,user_list_sql.length-2);
+        let user_list = await dbQueryList(user_list_sql);
+        user_list = user_list?.result;
+        let log_list = [];
+        for(var i = 0;i<user_list.length;i++){
+            log_list.push({ table: 'star', price: (price*percent/10000/(user_list.length)), user_pk: user_list[i]?.pk, type: 14 })
+        }
+        await db.beginTransaction();
+        for (var i = 0; i < log_list?.length; i++) {
+            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", "{}", decode?.pk])
+        }
+        await db.commit();
+        return response(req, res, 100, "success", []);
+    }catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -1970,7 +2006,6 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
         }
         await genealogy_score_list.push(score);
     }
-    console.log(genealogy_score_list)
     let great = 0;
     let loss = 0;
     great = Math.max.apply(null, genealogy_score_list);
@@ -2387,8 +2422,17 @@ const addNoteImage = (req, res) => {
         } else {
             return response(req, res, -100, "이미지가 비어 있습니다.", [])
         }
+    }catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
     }
-    catch (err) {
+    
+}
+const getPartnerScoreByUserList = (req, res) =>{
+    try{
+        let {list} = req.body;
+
+    }catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
@@ -2411,7 +2455,7 @@ const getItems = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } 
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier, not_prider } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
@@ -2445,6 +2489,9 @@ const getItems = (req, res) => {
         }
         if(prider){
             whereStr += ` AND prider=${prider} `;
+        }
+        if(not_prider){
+            whereStr += ` AND prider!=${not_prider} `;
         }
         if(tier){
             whereStr += ` AND tier=${tier} `;
@@ -2939,5 +2986,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle
 };
