@@ -2650,6 +2650,7 @@ const getGiftHistory = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
+        let {page, page_cut} = req.query;
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -2682,7 +2683,13 @@ const getGiftHistory = async (req, res) => {
             }
             return 0;
         });
-        return response(req, res, 100, "success", ans_list)
+        if(page){
+            let maxPage = makeMaxPage(ans_list.length, page_cut);
+            ans_list = ans_list.slice((page-1)*page_cut, page*page_cut);
+            return response(req, res, 100, "success", {maxPage: maxPage, data:ans_list})
+        }else{
+            return response(req, res, 100, "success", ans_list)
+        }
     } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
@@ -2694,7 +2701,7 @@ const getRandomboxRollingHistory = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
-        let { increase } = req.query;
+        let { increase, page, page_cut } = req.query;
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -2730,7 +2737,13 @@ const getRandomboxRollingHistory = async (req, res) => {
             }
             return 0;
         });
-        return response(req, res, 100, "success", ans_list)
+        if(page){
+            let maxPage = makeMaxPage(ans_list.length, page_cut);
+            ans_list = ans_list.slice((page-1)*page_cut, page*page_cut);
+            return response(req, res, 100, "success", {maxPage: maxPage, data:ans_list})
+        }else{
+            return response(req, res, 100, "success", ans_list)
+        }
     } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
