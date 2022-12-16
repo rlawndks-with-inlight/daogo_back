@@ -12,7 +12,8 @@ const jwt = require('jsonwebtoken')
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, 
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -1091,7 +1092,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 point = discount_price;
             }
             purchase_list.push({
-                table: 'star', price: (item?.sell_star * item_count - point) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star * item_count - point - discountOutlet(item?.sell_star * item_count,user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -1105,7 +1106,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             })
         } else {
             purchase_list.push({
-                table: 'star', price: (item?.sell_star) * (-1) * item_count, user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star * item_count - discountOutlet(item?.sell_star * item_count,user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -2274,6 +2275,8 @@ const updateItem = async (req, res) => {
         let table = req.body.table;
         let sql = `UPDATE ${table}_table SET ${keys.join("=?,")}=? WHERE pk=?`;
         values.push(req.body.pk);
+        console.log(sql)
+        console.log(values)
         db.beginTransaction((err) => {
             if (err) {
                 return response(req, res, -200, "서버 에러 발생", [])
@@ -2390,14 +2393,25 @@ const addNoteImage = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-
+const returnListBySchema = async (list_, schema_) =>{
+    let list = [...list_];
+    let schema = schema_??"";
+    if(schema=='user'){
+        for(var i =0;i<list.length;i++){
+            let genealogy_list = await getGenealogyReturn(list[i]);
+            let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, list[i]);
+            list[i]['partner'] = `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`;
+        }
+    }
+    return list;
+}
 const getItems = (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } 
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
@@ -2429,7 +2443,12 @@ const getItems = (req, res) => {
         if (increase) {
             whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
-
+        if(prider){
+            whereStr += ` AND prider=${prider} `;
+        }
+        if(tier){
+            whereStr += ` AND tier=${tier} `;
+        }
         if (table == 'user') {
             sql = "SELECT * "
             let money_categories = ['star', 'point', 'randombox', 'esgw'];
@@ -2538,31 +2557,32 @@ const getItems = (req, res) => {
             sql += ` LIMIT ${limit} `;
         }
         if (page) {
-
             sql += ` LIMIT ${(page - 1) * page_cut}, ${page_cut}`;
             db.query(pageSql, async (err, result1) => {
                 if (err) {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
                 } else {
-                    await db.query(sql, (err, result2) => {
+                    await db.query(sql, async(err, result2) => {
                         if (err) {
                             console.log(err)
                             return response(req, res, -200, "서버 에러 발생", [])
                         } else {
                             let maxPage = result1[0]['COUNT(*)'] % page_cut == 0 ? (result1[0]['COUNT(*)'] / page_cut) : ((result1[0]['COUNT(*)'] - result1[0]['COUNT(*)'] % page_cut) / page_cut + 1);
-                            return response(req, res, 100, "success", { data: result2, maxPage: maxPage });
+                            let data = await returnListBySchema(result2, table);
+                            return response(req, res, 100, "success", { data: data, maxPage: maxPage });
                         }
                     })
                 }
             })
         } else {
-            db.query(sql, (err, result) => {
+            db.query(sql, async(err, result) => {
                 if (err) {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
                 } else {
-                    return response(req, res, 100, "success", result)
+                    let data = await returnListBySchema(result, table);
+                    return response(req, res, 100, "success", data)
                 }
             })
         }

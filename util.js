@@ -475,11 +475,24 @@ const makeMaxPage = (num, page_cut) => {
         return parseInt(num / page_cut) + 1;
     }
 }
+const discountOutletList = (tier) =>{
+    let discount_percent_list = [5,6,7,8,9,10];
+    return discount_percent_list[tier/5];
+}
+const discountOutlet = (price, tier) =>{
+    let discount_percent_list = [5,6,7,8,9,10];
+    let result = parseFloat(price);
+    console.log(result)
+    console.log(tier)
+    result = result*(discount_percent_list[tier/5]/100);
+    return result;
+}
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
     getUserPKArrStrWithNewPK, isNotNullOrUndefined,
     namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, 
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet
 }
