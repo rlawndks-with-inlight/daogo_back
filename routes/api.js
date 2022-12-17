@@ -1526,6 +1526,78 @@ const addMonthSettle = async (req, res) => {//월정산
 
     }
 }
+const insertUserMoneyByExcel = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { list } = req.body;
+
+        let log_obj = {
+            star: [],
+            point: [],
+            randombox: [],
+            esgw: [],
+        }
+        let user_list_sql = `SELECT pk, id FROM user_table WHERE id IN (`;
+        for (var i = 0; i < list.length; i++) {
+            user_list_sql += `'${list[i][0]}',`
+        }
+        user_list_sql = user_list_sql.substring(0, user_list_sql.length - 1);
+        user_list_sql += ")";
+        let user_list = await dbQueryList(user_list_sql);
+        user_list = user_list?.result;
+        let user_obj = {};
+        for (var i = 0; i < user_list.length; i++) {
+            user_obj[user_list[i]['id']] = user_list[i];
+        }
+        if (list.length > 0) {
+            for (var i = 0; i < list.length; i++) {
+                if (!isNaN(parseFloat(list[i][2])) && list[i][2] && parseFloat(list[i][2]) != 0) {//스타
+                    log_obj.star.push([parseFloat(list[i][2]), list[i][6], user_obj[list[i][0]]?.pk, 5, decode?.pk, "{}"]);//price, note, user_pk, type, manager_pk, explain_obj 
+                }
+                if (!isNaN(parseFloat(list[i][3])) && list[i][3] && parseFloat(list[i][3]) != 0) {//포인트
+                    log_obj.point.push([parseFloat(list[i][3]), list[i][6], user_obj[list[i][0]]?.pk, 5, decode?.pk, "{}"]);
+                }
+                if (!isNaN(parseFloat(list[i][4])) && list[i][4] && parseFloat(list[i][4]) != 0) {//랜덤박스
+                    log_obj.randombox.push([parseFloat(list[i][4]), list[i][6], user_obj[list[i][0]]?.pk, 5, decode?.pk, "{}"]);
+                }
+                if (!isNaN(parseFloat(list[i][5])) && list[i][5] && parseFloat(list[i][5]) != 0) {//esgw
+                    log_obj.esgw.push([parseFloat(list[i][5]), list[i][6], user_obj[list[i][0]]?.pk, 5, decode?.pk, "{}"]);
+                }
+            }
+            await db.beginTransaction();
+            if (log_obj['star'].length > 0) {
+                console.log(log_obj['star'])
+                let star_result = await insertQuery(`INSERT INTO log_star_table (price, note, user_pk, type, manager_pk, explain_obj) VALUES ? `, [log_obj['star']]);
+            }
+            if (log_obj['point'].length > 0) {
+                let point_result = await insertQuery(`INSERT INTO log_point_table (price, note, user_pk, type, manager_pk, explain_obj) VALUES ? `, [log_obj['point']]);
+            }
+            if (log_obj['randombox'].length > 0) {
+                let randombox_result = await insertQuery(`INSERT INTO log_randombox_table (price, note, user_pk, type, manager_pk, explain_obj) VALUES ? `, [log_obj['randombox']]);
+            }
+            if (log_obj['esgw'].length > 0) {
+                let esgw_result = await insertQuery(`INSERT INTO log_esgw_table (price, note, user_pk, type, manager_pk, explain_obj) VALUES ? `, [log_obj['esgw']]);
+            }
+            for (var i = 0; i < user_list.length; i++) {
+                await updateUserTier(user_list[i]?.pk);
+            }
+            await db.commit();
+            return response(req, res, 100, "success", []);
+        } else {
+            await db.commit();
+            return response(req, res, 100, "success", []);
+        }
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const onResign = (req, res) => {
     try {
         let { id } = req.body;
@@ -3115,5 +3187,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel
 };
