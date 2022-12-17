@@ -12,7 +12,7 @@ const jwt = require('jsonwebtoken')
 const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
-    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth, 
+    categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
     getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday
 } = require('../util')
 const {
@@ -1000,56 +1000,70 @@ const subscriptionDeposit = async (req, res) => {//청약예치금 등록
 
     }
 }
-const isExistUserParent = async (parent_pk, child_pk, user_obj) =>{
+const isExistUserParent = async (parent_pk, child_pk, user_obj) => {
     let bool = false;
-    let current_user = {...user_obj[child_pk]};
-    while(1){
-        if(current_user['parent_pk'] == parent_pk){
-            bool = true;
-            break;
-        }else{
-            if(!user_obj[current_user['parent_pk']]){
+    let current_user = { ...user_obj[child_pk] };
+    let prider_count = 0;//중간에 프라이더 수
+    if (child_pk == parent_pk) {
+        return {
+            bool: true,
+            prider_count: 0
+        };
+    } else {
+        while (1) {
+            if (current_user['parent_pk'] == parent_pk) {
+                bool = true;
                 break;
-            }else{
-                current_user = {...user_obj[current_user['parent_pk']]};
+            } else {
+                if (!user_obj[current_user['parent_pk']]) {
+                    break;
+                } else {
+                    if (user_obj[current_user['parent_pk']]?.prider > 0) {
+                        prider_count++;
+                    }
+                    current_user = { ...user_obj[current_user['parent_pk']] };
+                }
             }
         }
-    } 
-    return bool;
+        return {
+            bool: bool,
+            prider_count: prider_count
+        };
+    }
 }
-const getWeekSettleChild = async (req, res) =>{//이번주 산하 유저의 매출액
-    try{
+const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매출액
+    try {
         const decode = checkLevel(req.cookies.token, 40);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let { pk, page } = req.query;
-        let monday = returnMoment(getMonday(new Date())).substring(0,10) + ' 00:00:00';
+        let monday = returnMoment(getMonday(new Date())).substring(0, 10) + ' 00:00:00';
         let sql = "";
         sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
         sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
         sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.date >= '${monday}'`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;
-        let user_list = await dbQueryList(`SELECT pk, parent_pk, depth FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
+        let user_list = await dbQueryList(`SELECT pk, parent_pk, depth, prider FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
         user_list = user_list?.result;
         let user_obj = {};
-        for(var i =0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = user_list[i];
         }
         let result = [];
-        for(var i = 0;i<settle_list.length;i++){
+        for (var i = 0; i < settle_list.length; i++) {
             let bool = await isExistUserParent(pk, settle_list[i].user_pk, user_obj);
-            if(bool){
+            if (bool?.bool) {
                 result.push(settle_list[i]);
             }
         }
         let maxPage = makeMaxPage(result.length, 20);
-        result = result.slice((page-1)*20, page*20);
+        result = result.slice((page - 1) * 20, page * 20);
         let user = await dbQueryList(`SELECT id, name FROM user_table WHERE pk=${pk}`);
         user = user?.result[0];
-        return response(req, res, 100, "success", {user:user, data:result, maxPage:maxPage});
-    }catch (err) {
+        return response(req, res, 100, "success", { user: user, data: result, maxPage: maxPage });
+    } catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -1057,10 +1071,58 @@ const getWeekSettleChild = async (req, res) =>{//이번주 산하 유저의 매�
 
     }
 }
-const onWeekSettle = async(req, res) =>{
-    try{
 
-    }catch (err) {
+const onWeekSettle = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let monday = returnMoment(getMonday(new Date())).substring(0, 10) + ' 00:00:00';
+        let sql = "";
+        sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
+        sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
+        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.date >= '${monday}'`;
+        let settle_list = await dbQueryList(sql);
+        settle_list = settle_list?.result;//이번주 매출 리스트
+        let user_list = await dbQueryList("SELECT pk, parent_pk, depth, prider FROM user_table");//유저리스트
+        user_list = user_list?.result;
+        let user_obj = {};
+        for (var i = 0; i < user_list.length; i++) {
+            user_obj[user_list[i]?.pk] = user_list[i];
+        }
+        let prider_list = await dbQueryList("SELECT * FROM user_table WHERE prider=2 ");//프라이더 리스트
+        prider_list = prider_list?.result;
+        let get_price_by_tier = { 0: 0, 5: 360000, 10: 1200000, 15: 3600000, 20: 6000000, 25: 12000000 };
+        let log_list = [];
+
+        for (i = 0; i < prider_list.length; i++) {
+            prider_list[i]['settle'] = 0;
+            for (var j = 0; j < settle_list.length; j++) {
+                let bool = await isExistUserParent(prider_list[i]?.pk, settle_list[j].user_pk, user_obj);
+                if (bool?.bool) {
+                    let settle_obj = JSON.parse(settle_list[j]?.explain_obj);
+                    if (bool?.prider_count >= 2) {
+                        prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 0;
+                    } else if (bool?.prider_count == 1) {
+                        prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 0.5;
+                    } else if (bool?.prider_count == 0) {
+                        prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 3;
+                    }
+                }
+            }
+            if (prider_list[i]['settle'] > 0) {
+                log_list.push({ table: 'star', price: prider_list[i]['settle'], user_pk: prider_list[i]?.pk, type: 15 })
+            }
+        }
+        await db.beginTransaction();
+        for (var i = 0; i < log_list?.length; i++) {
+            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", "{}", decode?.pk])
+        }
+        await db.commit();
+        return response(req, res, 100, "success", []);
+    } catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -1158,7 +1220,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 point = discount_price;
             }
             purchase_list.push({
-                table: 'star', price: (item?.sell_star * item_count - point - discountOutlet(item?.sell_star * item_count,user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star * item_count - point - discountOutlet(item?.sell_star * item_count, user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -1172,7 +1234,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             })
         } else {
             purchase_list.push({
-                table: 'star', price: (item?.sell_star * item_count - discountOutlet(item?.sell_star * item_count,user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'star', price: (item?.sell_star * item_count - discountOutlet(item?.sell_star * item_count, user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
                     name: name,
                     phone: phone,
@@ -1427,27 +1489,27 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
 
     }
 }
-const addMonthSettle = async (req, res) =>{
-    try{
+const addMonthSettle = async (req, res) => {//월정산
+    try {
         const decode = checkLevel(req.cookies.token, 40);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let {price, percent, user_prider_list} = req.body;
+        let { price, percent, user_prider_list } = req.body;
         console.log(req.body);
-        if(!price || !percent || !user_prider_list){
+        if (!price || !percent || !user_prider_list) {
             return response(req, res, -100, "필수 값이 비어 있습니다.", []);
         }
         let user_list_sql = "SELECT * FROM user_table WHERE "
-        for(var i = 0;i<user_prider_list.length;i++){
+        for (var i = 0; i < user_prider_list.length; i++) {
             user_list_sql += ` prider=${user_prider_list[i]} OR`;
         }
-        user_list_sql = user_list_sql.substring(0,user_list_sql.length-2);
+        user_list_sql = user_list_sql.substring(0, user_list_sql.length - 2);
         let user_list = await dbQueryList(user_list_sql);
         user_list = user_list?.result;
         let log_list = [];
-        for(var i = 0;i<user_list.length;i++){
-            log_list.push({ table: 'star', price: (price*percent/10000/(user_list.length)), user_pk: user_list[i]?.pk, type: 14 })
+        for (var i = 0; i < user_list.length; i++) {
+            log_list.push({ table: 'star', price: (price * percent / 10000 / (user_list.length)), user_pk: user_list[i]?.pk, type: 14 })
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
@@ -1456,7 +1518,7 @@ const addMonthSettle = async (req, res) =>{
         }
         await db.commit();
         return response(req, res, 100, "success", []);
-    }catch (err) {
+    } catch (err) {
         console.log(err)
         await db.rollback();
         return response(req, res, -200, "서버 에러 발생", []);
@@ -2097,7 +2159,7 @@ const getGenealogy = (req, res) => {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
         let pk = decode.pk;
-        db.query("SELECT pk, id, name, tier, depth, parent_pk FROM user_table", async (err, result) => {
+        db.query("SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table", async (err, result) => {
             if (err) {
                 console.log(err)
                 return response(req, res, -200, "서버 에러 발생", [])
@@ -2111,7 +2173,7 @@ const getGenealogy = (req, res) => {
                 for (var i = 0; i < max_child_depth(); i++) {
                     depth_list[i] = {};
                 }
-                let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`)
+                let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table WHERE pk=${decode?.pk}`)
                 auth = auth?.result[0]
                 if (decode.user_level < 40) {//유저가 불러올 때
                     depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
@@ -2159,9 +2221,9 @@ const getHomeContent = async (req, res) => {
             { table: "star", sql: `SELECT SUM(price) AS star FROM log_star_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${decode.pk}`, type: 'obj' },
-            { table: "star_gift", sql: `SELECT SUM(price) AS star_gift FROM log_star_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것
+            { table: "generation_star", sql: `SELECT SUM(price) AS generation_star FROM log_star_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) `, type: 'obj' },//선물받은것
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
-            { table: "point_gift", sql: `SELECT SUM(price) AS point_gift FROM log_point_table WHERE user_pk=${decode.pk} AND type=3 AND price > 0 `, type: 'obj' },//선물받은것, 
+            { table: "generation_point", sql: `SELECT SUM(price) AS generation_point FROM log_point_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) `, type: 'obj' },//선물받은것, 
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
             { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
@@ -2489,26 +2551,26 @@ const addNoteImage = (req, res) => {
         } else {
             return response(req, res, -100, "이미지가 비어 있습니다.", [])
         }
-    }catch (err) {
+    } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
-    
-}
-const getPartnerScoreByUserList = (req, res) =>{
-    try{
-        let {list} = req.body;
 
-    }catch (err) {
+}
+const getPartnerScoreByUserList = (req, res) => {
+    try {
+        let { list } = req.body;
+
+    } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const returnListBySchema = async (list_, schema_) =>{
+const returnListBySchema = async (list_, schema_) => {
     let list = [...list_];
-    let schema = schema_??"";
-    if(schema=='user'){
-        for(var i =0;i<list.length;i++){
+    let schema = schema_ ?? "";
+    if (schema == 'user') {
+        for (var i = 0; i < list.length; i++) {
             let genealogy_list = await getGenealogyReturn(list[i]);
             let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, list[i]);
             list[i]['partner'] = `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`;
@@ -2521,7 +2583,7 @@ const getItems = (req, res) => {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
-        } 
+        }
         let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier, not_prider } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
@@ -2554,13 +2616,13 @@ const getItems = (req, res) => {
         if (increase) {
             whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
-        if(prider){
+        if (prider) {
             whereStr += ` AND prider=${prider} `;
         }
-        if(not_prider){
+        if (not_prider) {
             whereStr += ` AND prider!=${not_prider} `;
         }
-        if(tier){
+        if (tier) {
             whereStr += ` AND tier=${tier} `;
         }
         if (table == 'user') {
@@ -2677,7 +2739,7 @@ const getItems = (req, res) => {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
                 } else {
-                    await db.query(sql, async(err, result2) => {
+                    await db.query(sql, async (err, result2) => {
                         if (err) {
                             console.log(err)
                             return response(req, res, -200, "서버 에러 발생", [])
@@ -2690,7 +2752,7 @@ const getItems = (req, res) => {
                 }
             })
         } else {
-            db.query(sql, async(err, result) => {
+            db.query(sql, async (err, result) => {
                 if (err) {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
@@ -2705,17 +2767,17 @@ const getItems = (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const getSubscriptionDepositHistory = async(req, res) => {
+const getSubscriptionDepositHistory = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
-        let {page_cut, page} = req.body;
-        if(!page_cut){
+        let { page_cut, page } = req.body;
+        if (!page_cut) {
             page_cut = page_cut;
         }
-        if(!page){
+        if (!page) {
             page = 1;
         }
         let result_list = [];
@@ -2728,7 +2790,7 @@ const getSubscriptionDepositHistory = async(req, res) => {
             { table: "point", sql: `SELECT log_point_table.*, '포인트' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_point_table LEFT JOIN user_table ON log_point_table.user_pk=user_table.pk WHERE log_point_table.type=8 `, type: 'list' },
             { table: "esgw", sql: `SELECT log_esgw_table.*, 'ESGWP' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_esgw_table LEFT JOIN user_table ON log_esgw_table.user_pk=user_table.pk WHERE log_esgw_table.type=8`, type: 'list' },
         ];
-        
+
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
         }
@@ -2737,9 +2799,9 @@ const getSubscriptionDepositHistory = async(req, res) => {
         }
         let result = (await when(result_list));
         for (var i = 0; i < (await result).length; i++) {
-            obj[(await result[i])?.table] = (await result[i])?.data??[];
+            obj[(await result[i])?.table] = (await result[i])?.data ?? [];
         }
-        let list = [...obj?.star,...obj?.point,...obj?.esgw];
+        let list = [...obj?.star, ...obj?.point, ...obj?.esgw];
         list = await list.sort(function (a, b) {
             let x = a.date.toLowerCase();
             let y = b.date.toLowerCase();
@@ -2751,11 +2813,11 @@ const getSubscriptionDepositHistory = async(req, res) => {
             }
             return 0;
         });
-        if(req.body.page){
+        if (req.body.page) {
             let maxPage = makeMaxPage(list?.length, page_cut);
-            let data = list.slice((page-1)*page_cut,page*page_cut);
-            return response(req, res, 100, "success", {maxPage:maxPage,data:data});
-        }else{
+            let data = list.slice((page - 1) * page_cut, page * page_cut);
+            return response(req, res, 100, "success", { maxPage: maxPage, data: data });
+        } else {
             return response(req, res, 100, "success", list);
         }
     } catch (err) {
@@ -2784,7 +2846,7 @@ const getGiftHistory = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
-        let {page, page_cut} = req.query;
+        let { page, page_cut } = req.query;
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -2817,11 +2879,11 @@ const getGiftHistory = async (req, res) => {
             }
             return 0;
         });
-        if(page){
+        if (page) {
             let maxPage = makeMaxPage(ans_list.length, page_cut);
-            ans_list = ans_list.slice((page-1)*page_cut, page*page_cut);
-            return response(req, res, 100, "success", {maxPage: maxPage, data:ans_list})
-        }else{
+            ans_list = ans_list.slice((page - 1) * page_cut, page * page_cut);
+            return response(req, res, 100, "success", { maxPage: maxPage, data: ans_list })
+        } else {
             return response(req, res, 100, "success", ans_list)
         }
     } catch (err) {
@@ -2871,11 +2933,11 @@ const getRandomboxRollingHistory = async (req, res) => {
             }
             return 0;
         });
-        if(page){
+        if (page) {
             let maxPage = makeMaxPage(ans_list.length, page_cut);
-            ans_list = ans_list.slice((page-1)*page_cut, page*page_cut);
-            return response(req, res, 100, "success", {maxPage: maxPage, data:ans_list})
-        }else{
+            ans_list = ans_list.slice((page - 1) * page_cut, page * page_cut);
+            return response(req, res, 100, "success", { maxPage: maxPage, data: ans_list })
+        } else {
             return response(req, res, 100, "success", ans_list)
         }
     } catch (err) {
