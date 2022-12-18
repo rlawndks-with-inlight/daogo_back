@@ -1212,13 +1212,14 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         //자기 위에 회원 포인트 받기
         //자신 랜덤박스 포인트 받기, 포인트 깎이기
         let point = 0;
-
+        let use_star_money = 0;
         if (use_point) {
             if (user_money_?.point < discount_price) {
                 point = user_money_?.point;
             } else {
                 point = discount_price;
             }
+            use_star_money = (item?.sell_star * item_count - point - discountOutlet(item?.sell_star * item_count, user?.tier));
             purchase_list.push({
                 table: 'star', price: (item?.sell_star * item_count - point - discountOutlet(item?.sell_star * item_count, user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
@@ -1233,6 +1234,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 })
             })
         } else {
+            use_star_money = (item?.sell_star * item_count - discountOutlet(item?.sell_star * item_count, user?.tier));
             purchase_list.push({
                 table: 'star', price: (item?.sell_star * item_count - discountOutlet(item?.sell_star * item_count, user?.tier)) * (-1), user_pk: decode?.pk, type: 0, item_pk: item?.pk, explain_obj: JSON.stringify({
                     request: request,
@@ -1290,7 +1292,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         let parent_list = await getParentUserList(decode);
         if (parent_list[0]?.tier > user?.tier) {
             log_list.push({
-                table: 'randombox', price: (item?.sell_star) * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count, user_pk: parent_list[0]?.pk, type: 12, item_pk: item?.pk, explain_obj: JSON.stringify({
+                table: 'randombox', price: use_star_money * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count, user_pk: parent_list[0]?.pk, type: 12, item_pk: item?.pk, explain_obj: JSON.stringify({
                     item_pk: item?.pk,
                     item_name: item?.name,
                     user_pk: decode?.pk,
@@ -3164,8 +3166,9 @@ const updateDailyPercent = (req, res) => {
         if (!decode) {
             return response(req, res, -200, "권한이 없습니다.", [])
         } else {
-            const { type_percent, money, money_percent, date, randombox_initialization_time, daily_deduction_point, pk } = req.body;
-            db.query('UPDATE daily_percentage_table SET type_percent=?, money=?, money_percent=?, date=?, randombox_initialization_time=?,daily_deduction_point=?  WHERE pk=?', [type_percent, money, money_percent, date, randombox_initialization_time, daily_deduction_point, pk], (err, result) => {
+            const { type_percent, money, money_percent, date, randombox_initialization_time, pk } = req.body;
+            console.log(req.body)
+            db.query('UPDATE daily_percentage_table SET type_percent=?, money=?, money_percent=?, date=?, randombox_initialization_time=?  WHERE pk=?', [type_percent, money, money_percent, date, randombox_initialization_time, pk], (err, result) => {
                 if (err) {
                     console.log(err)
                     return response(req, res, -200, "서버 에러 발생", [])
