@@ -193,6 +193,33 @@ const onSignUp = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+const insertUsetList = async () => {
+    try {
+        let user_list = await dbQueryList("SELECT * FROM user_table WHERE user_level=0 AND depth>1");
+        user_list = user_list?.result;
+        console.log(user_list)
+        let user_obj = {};
+        for(var i = 0;i<user_list.length;i++){
+            user_obj[user_list[i].id] = user_list[i];
+        }
+        for(var i = 0;i<user_list.length;i++){
+            if(user_obj[user_list[i].parent_id]){
+                console.log(user_obj[user_list[i].parent_id])
+                let result = await insertQuery("UPDATE user_table SET parent_pk=? WHERE pk=?",[user_obj[user_list[i].parent_id].pk, user_list[i].pk]);
+            }
+
+        }
+        db.beginTransaction();
+        
+        await db.commit();
+        return;
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+    }
+
+}
+//insertUsetList();
 const getAddressByText = async (req, res) => {
     try {
         let { text } = req.body;
@@ -445,6 +472,7 @@ const editMyInfo = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
+
 const initializationIdCard = async (req, res) => {
     try {
         const decode = checkLevel(req.cookies.token, 40);
@@ -2228,6 +2256,7 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
 }
 const getGenealogy = (req, res) => {
     try {
+        console.log(1)
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
@@ -2249,11 +2278,12 @@ const getGenealogy = (req, res) => {
                 }
                 let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table WHERE pk=${decode?.pk}`)
                 auth = auth?.result[0]
+                list = list.sort(function (a, b) {
+                    return a.depth - b.depth;
+                })
                 if (decode.user_level < 40) {//유저가 불러올 때
                     depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
-                    list = list.sort(function (a, b) {
-                        return a.depth - b.depth;
-                    })
+                    
                     for (var i = 0; i < list.length; i++) {
                         if (depth_list[list[i]?.depth][list[i]?.parent_pk] && list[i]?.depth) {
                             depth_list[list[i]?.depth][list[i]?.parent_pk].push(list[i]);
