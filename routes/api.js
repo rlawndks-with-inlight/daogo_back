@@ -1109,7 +1109,7 @@ const isExistUserParent = async (parent_pk, child_pk, user_obj) => {
                 if (!user_obj[current_user['parent_pk']]) {
                     break;
                 } else {
-                    if (user_obj[current_user['parent_pk']]?.prider > 0) {
+                    if (user_obj[current_user['parent_pk']]?.prider >= 2) {
                         prider_count++;
                     }
                     current_user = { ...user_obj[current_user['parent_pk']] };
@@ -1182,7 +1182,7 @@ const onWeekSettle = async (req, res) => {
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = user_list[i];
         }
-        let prider_list = await dbQueryList("SELECT * FROM user_table WHERE prider=2 ");//프라이더 리스트
+        let prider_list = await dbQueryList("SELECT * FROM user_table WHERE prider=2 OR prider=3 ");//프라이더 리스트
         prider_list = prider_list?.result;
         let get_price_by_tier = { 0: 0, 5: 360000, 10: 1200000, 15: 3600000, 20: 6000000, 25: 12000000 };
         let log_list = [];
@@ -2756,7 +2756,7 @@ const getItems = (req, res) => {
             whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
         if (prider) {
-            whereStr += ` AND prider=${prider} `;
+            whereStr += ` AND (prider=2 OR prider=3) `;
         }
         if (not_prider) {
             whereStr += ` AND prider!=${not_prider} `;
