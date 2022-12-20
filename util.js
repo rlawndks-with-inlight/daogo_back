@@ -496,6 +496,9 @@ function getMonday(d) {
         diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
     return new Date(d.setDate(diff));
 }
+const adminPk = () =>{
+    return 74;
+}
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
@@ -503,5 +506,5 @@ module.exports = {
     namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
     categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk
 }

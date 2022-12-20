@@ -13,7 +13,7 @@ const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
     categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
@@ -262,6 +262,7 @@ const addCategory = (req, res) => {
 const onLoginById = async (req, res) => {
     try {
         let { id, pw, type } = req.body;
+        console.log(1)
         let sql = `SELECT * FROM user_table WHERE id=?`;
         if (type == 'manager') {
             sql += ` AND user_level>=30 `
@@ -276,6 +277,7 @@ const onLoginById = async (req, res) => {
                         // bcrypt.hash(pw, salt, async (err, hash) => {
                         let hash = decoded.toString('base64');
                         if (hash == result1[0].pw) {
+                            console.log(result1)
                             try {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
@@ -812,6 +814,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 2 },
             { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2 }
         ]
+        console.log(decode)
         let parent_user_list = await getParentUserList(decode)
         for (var i = 0; i < parent_user_list?.length; i++) {
             if (parent_user_list[i]?.pay_user_count >= 10 && (decode?.depth - parent_user_list[i]?.depth <= 15)) {
@@ -2156,8 +2159,10 @@ const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오�
         for (var i = 0; i < max_child_depth(); i++) {
             depth_list[i] = {};
         }
+        console.log(decode)
         let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
         auth = auth?.result[0]
+        console.log(auth)
         depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
         list = list.sort(function (a, b) {
             return a.depth - b.depth;
@@ -2177,8 +2182,9 @@ const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오�
 
 const getParentUserList = async (decode_) => {//자신위의 유저들
     let decode = decode_;
+    console.log(decode)
     if (decode?.pk) {
-        let user_tree = await getGenealogyReturn({ pk: 1 });
+        let user_tree = await getGenealogyReturn({ pk: adminPk() });
         let user_list = await dbQueryList('SELECT * FROM user_table');
         user_list = user_list?.result;
         let user_obj = {};
