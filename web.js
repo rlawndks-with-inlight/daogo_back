@@ -14,7 +14,7 @@ const { mw } = require('request-ip');
 require('dotenv').config()
 //passport, jwt
 const jwt = require('jsonwebtoken')
-const { checkLevel, logRequestResponse, isNotNullOrUndefined, namingImagesPath, nullResponse, lowLevelResponse, response, returnMoment, sendAlarm } = require('./util')
+const { checkLevel, logRequestResponse, isNotNullOrUndefined, namingImagesPath, nullResponse, lowLevelResponse, response, returnMoment, sendAlarm, getDailyPercentReturn, updateUserTier } = require('./util')
 app.use(bodyParser.json({ limit: '100mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '100mb' }));
 //multer
@@ -84,6 +84,7 @@ app.get('/', (req, res) => {
 //         }
 // }
 //updateSetting();
+
 const scheduleDaily = () => {
         schedule.scheduleJob('0 0/1 * * * *', async function () {
                 let daily_data = await dbQueryList(`SELECT * FROM daily_percentage_table ORDER BY pk DESC LIMIT 1`);
@@ -93,24 +94,29 @@ const scheduleDaily = () => {
                 if (returnMoment().substring(11, 16) == daily_data?.randombox_initialization_time) {
                         let user_list = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk NOT IN (SELECT user_pk AS pk FROM log_star_table WHERE TYPE=7 AND TIMESTAMPDIFF(second,'2022-12-07 00:00',date) > -86400) AND user_level=0`);
                         user_list = user_list?.result;
-                        let user_count = user_list.length;
+                        let user_count = 0;
                         let daily_percent = await getDailyPercentReturn();
-
+                        console.log(daily_percent)
                         for (var i = 0; i < user_list.length; i++) {
-                                let rand_num = Math.floor(Math.random() * 101);
-                                let current_num = 0;
-                                for (var idx = 0; idx < daily_percent?.money_percent?.length; idx++) {
-                                        current_num += daily_percent?.money_percent[idx];
-                                        if (current_num > rand_num) {
-                                                break;
+                                if (user_list[i]?.sum_randombox > 0) {
+                                        let rand_num = Math.floor(Math.random() * 101);
+                                        let current_num = 0;
+                                        for (var idx = 0; idx < daily_percent?.money_percent?.length; idx++) {
+                                                current_num += daily_percent?.money_percent[idx];
+                                                if (current_num > rand_num) {
+                                                        break;
+                                                }
+                                        }
+                                        let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list[i]?.sum_randombox ?? 0) / 100);
+                                        if (randombox_point != 0) {
+                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?, ?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) })])
+                                                await updateUserTier(user_list[i]?.pk);
+                                                user_count++;
+                                        } else {
+
                                         }
                                 }
-                                let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list?.sum_randombox ?? 0) / 100);
-                                if (randombox_point != 0) {
-                                        await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true })])
-                                } else {
 
-                                }
                         }
                         await insertQuery(`INSERT INTO log_daily_initialization_table (user_count) VALUES (?)`, [user_count]);
                 }

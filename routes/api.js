@@ -13,13 +13,14 @@ const { checkLevel, getSQLnParams, getUserPKArrStrWithNewPK,
     isNotNullOrUndefined, namingImagesPath, nullResponse, getKewordListBySchema,
     lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
     categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk, makeHash
 } = require('../util')
 const {
     getRowsNumWithKeyword, getRowsNum, getAllDatas,
     getDatasWithKeywordAtPage, getDatasAtPage,
     getKioskList, getItemRows, getItemList, dbQueryList, dbQueryRows, insertQuery, getTableAI
 } = require('../query-util')
+const { userList } = require('../userList');
 const macaddress = require('node-macaddress');
 var ip = require("ip");
 const when = require('when');
@@ -29,9 +30,9 @@ const { Console } = require('console')
 const { abort } = require('process')
 const axios = require('axios')
 //const { pbkdf2 } = require('crypto')
-const salt = "435f5ef2ffb83a632c843926b35ae7855bc2520021a73a043db41670bfaeb722"
+const salt = "435f5ef2ffb83a632c843926b35ae7855bc2520021a73a043db41670bfaeb722";
 const saltRounds = 10
-const pwBytes = 64
+const pwBytes = 64;
 const jwtSecret = "djfudnsqlalfKeyFmfRkwu"
 const geolocation = require('geolocation')
 const kakaoOpt = {
@@ -161,7 +162,7 @@ const onSignUp = async (req, res) => {
                                     console.log(err)
                                     return response(req, res, -200, "비밀번호 암호화 도중 에러 발생", [])
                                 }
-                                let payment_pw = await makeHash('0000');
+                                let payment_pw = await makeHash("0000");
                                 payment_pw = payment_pw?.data
 
                                 sql = 'INSERT INTO user_table (id, pw, name, nickname , phone, user_level, parent_id, parent_pk, depth, payment_pw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -193,24 +194,84 @@ const onSignUp = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const insertUsetList = async () => {
+const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
     try {
-        let user_list = await dbQueryList("SELECT * FROM user_table WHERE user_level=0 AND depth>1");
+        let user_list = userList();
+        let user_obj = {};
+        for (var i = 0; i < user_list.length; i++) {
+            user_list[i][0] = user_list[i][0].toLowerCase();
+            user_list[i][0] = user_list[i][0].replaceAll(' ', '');
+            user_list[i][3] = user_list[i][3].toLowerCase();
+            user_list[i][3] = user_list[i][3].replaceAll(' ', '');
+
+            user_list[i].splice(5, 3);
+            user_list[i].splice(11, 1);
+            if (i == 0) {
+                user_list[i][11] = 1;
+                user_list[i][3] = 'admin';
+
+            } else {
+                user_list[i][11] = -1;
+            }
+            user_list[i][4] = user_list[i][4] + ' 00:00:00'
+            user_list[i][5] = await makeHash(user_list[i][5].toString());
+            user_list[i][5] = user_list[i][5]?.data;
+            user_list[i][6] = await makeHash(user_list[i][6].toString());
+            user_list[i][6] = user_list[i][6]?.data;
+
+            user_obj[user_list[i][0]] = user_list[i];
+        }
+        let idx = 10;
+        while(idx--){
+            for (var i = 1; i < user_list.length; i++) {
+                if (user_obj[user_list[i][3]]) {
+                    if(user_obj[user_list[i][3]][11]!=-1){
+                        user_list[i][11] = user_obj[user_list[i][3]][11] + 1;
+                    }
+                } else {
+                    console.log(i)
+                    console.log(user_list[i][3])
+                    return;
+                }
+            }
+        }
+        let user_minus_depth_count = 0;
+        for (var i = 1; i < user_list.length; i++) {
+            if (user_list[i][11] == -1) {
+                user_minus_depth_count++;
+            }
+        }
+        //console.log(user_minus_depth_count)
+        //console.log(user_list)
+        await db.beginTransaction();
+       // let result = await insertQuery(`INSERT INTO user_table (id, name, phone, parent_id, date, pw, payment_pw, account_name, bank_name, account_number, identification_number, depth  ) VALUES ?`,[user_list]);
+        await await db.commit();
+    } catch (err) {
+        await db.rollback();
+        console.log(err)
+    }
+
+}
+//excelUserInsert();
+const insertUsetList = async () => {//데이터에 넣은유저 parent_pk 설정해주기
+    try {
+        let user_list = await dbQueryList("SELECT * FROM user_table WHERE user_level=0 AND depth >= 1");
         user_list = user_list?.result;
         console.log(user_list)
         let user_obj = {};
-        for(var i = 0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i].id] = user_list[i];
         }
-        for(var i = 0;i<user_list.length;i++){
-            if(user_obj[user_list[i].parent_id]){
+        db.beginTransaction();
+
+        for (var i = 0; i < user_list.length; i++) {
+            if (user_obj[user_list[i].parent_id]) {
                 console.log(user_obj[user_list[i].parent_id])
-                let result = await insertQuery("UPDATE user_table SET parent_pk=? WHERE pk=?",[user_obj[user_list[i].parent_id].pk, user_list[i].pk]);
+                let result = await insertQuery("UPDATE user_table SET parent_pk=? WHERE pk=?", [user_obj[user_list[i].parent_id].pk, user_list[i].pk]);
             }
 
         }
-        db.beginTransaction();
-        
+
         await db.commit();
         return;
     } catch (err) {
@@ -807,31 +868,31 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
         let insert_payment_pw = await makeHash(payment_pw);
+
         if (insert_payment_pw?.data !== user?.payment_pw) {
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
         let log_list = [
-            { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 2 },
-            { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2 }
+            { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 2, explain_obj: "{}" },
+            { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2, explain_obj: "{}" }
         ]
-        console.log(decode)
         let parent_user_list = await getParentUserList(decode)
         for (var i = 0; i < parent_user_list?.length; i++) {
             if (parent_user_list[i]?.pay_user_count >= 10 && (decode?.depth - parent_user_list[i]?.depth <= 15)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 5 && (decode?.depth - parent_user_list[i]?.depth <= 10)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 3 && (decode?.depth - parent_user_list[i]?.depth <= 5)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 1 && (decode?.depth - parent_user_list[i]?.depth <= 2)) {
                 if (parent_user_list[i]?.tier > 0) {
-                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11 });
+                    log_list.push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
                 }
             } else {
 
@@ -840,7 +901,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj) VALUES (?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", ""])
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj])
         }
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
@@ -891,7 +952,6 @@ const requestWithdraw = async (req, res) => {//출금신청
         }
 
 
-        console.log(withdraw_setting)
         if (star > withdraw_setting[`withdraw_${user?.tier}`]) {
             return response(req, res, -100, `최대 출금 신청 금액은 수수료 제외 ${commarNumber(withdraw_setting[`withdraw_${user?.tier}`])} 스타 입니다.`, []);
         }
@@ -1373,7 +1433,6 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
 const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
     try {
         const { pk, status } = req.body;
-        console.log(req.body);
         const decode = checkLevel(req.cookies.token, 40);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
@@ -1529,7 +1588,6 @@ const addMonthSettle = async (req, res) => {//월정산
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let { price, percent, user_prider_list } = req.body;
-        console.log(req.body);
         if (!price || !percent || !user_prider_list) {
             return response(req, res, -100, "필수 값이 비어 있습니다.", []);
         }
@@ -1602,7 +1660,6 @@ const insertUserMoneyByExcel = async (req, res) => {
             }
             await db.beginTransaction();
             if (log_obj['star'].length > 0) {
-                console.log(log_obj['star'])
                 let star_result = await insertQuery(`INSERT INTO log_star_table (price, note, user_pk, type, manager_pk, explain_obj) VALUES ? `, [log_obj['star']]);
             }
             if (log_obj['point'].length > 0) {
@@ -1755,7 +1812,7 @@ const findAuthByIdAndPhone = (req, res) => {
 }
 const checkExistId = (req, res) => {
     try {
-        const decode = checkLevel(req.cookies.token, 40)
+        const decode = checkLevel(req.cookies.token, 0)
         const id = req.body.id;
         const is_get_user_info = req.body.is_get_user_info;
         if (!decode && is_get_user_info) {
@@ -2121,30 +2178,7 @@ const updateMaster = (req, res) => {
 }
 
 
-const makeHash = (pw_) => {
 
-    return new Promise(async (resolve, reject) => {
-        let pw = pw_;
-        if (!(typeof pw == 'string')) {
-            pw = pw.toString();
-        }
-        await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
-            // bcrypt.hash(pw, salt, async (err, hash) => {
-            let hash = decoded.toString('base64');
-            if (err) {
-                reject({
-                    code: -200,
-                    data: undefined,
-                })
-            } else {
-                resolve({
-                    code: 200,
-                    data: hash,
-                })
-            }
-        })
-    })
-}
 const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오기
     let decode = decode_;
     if (decode?.pk) {
@@ -2159,10 +2193,8 @@ const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오�
         for (var i = 0; i < max_child_depth(); i++) {
             depth_list[i] = {};
         }
-        console.log(decode)
         let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
         auth = auth?.result[0]
-        console.log(auth)
         depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
         list = list.sort(function (a, b) {
             return a.depth - b.depth;
@@ -2182,7 +2214,6 @@ const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오�
 
 const getParentUserList = async (decode_) => {//자신위의 유저들
     let decode = decode_;
-    console.log(decode)
     if (decode?.pk) {
         let user_tree = await getGenealogyReturn({ pk: adminPk() });
         let user_list = await dbQueryList('SELECT * FROM user_table');
@@ -2289,7 +2320,7 @@ const getGenealogy = (req, res) => {
                 })
                 if (decode.user_level < 40) {//유저가 불러올 때
                     depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
-                    
+
                     for (var i = 0; i < list.length; i++) {
                         if (depth_list[list[i]?.depth][list[i]?.parent_pk] && list[i]?.depth) {
                             depth_list[list[i]?.depth][list[i]?.parent_pk].push(list[i]);
@@ -2549,8 +2580,6 @@ const updateItem = async (req, res) => {
         let table = req.body.table;
         let sql = `UPDATE ${table}_table SET ${keys.join("=?,")}=? WHERE pk=?`;
         values.push(req.body.pk);
-        console.log(sql)
-        console.log(values)
         db.beginTransaction((err) => {
             if (err) {
                 return response(req, res, -200, "서버 에러 발생", [])
@@ -2778,6 +2807,28 @@ const getItems = (req, res) => {
             sql += ` ${table}_table LEFT JOIN user_table ON ${table}_table.user_pk=user_table.pk`;
             if (decode.user_level < 40) {
                 whereStr += `AND user_pk=${decode.pk}`;
+            }
+        }
+        if (table == 'week_settle') {
+            pageSql = 'SELECT COUNT(*) FROM log_star_table ';
+            pageSql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql = "SELECT log_star_table.*, u_u.id AS user_id, u_u.name AS user_name, u_u.bank_name, u_u.account_number, u_u.account_name, m_u.id AS manager_id, m_u.name AS manager_name FROM ";
+            sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
+            whereStr += ` AND log_star_table.type=15 `;
+            if (decode.user_level < 40) {
+                whereStr += `AND u_u.pk=${decode.pk}`;
+            }
+        }
+        if (table == 'month_settle') {
+            pageSql = 'SELECT COUNT(*) FROM log_star_table ';
+            pageSql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql = "SELECT log_star_table.*, u_u.id AS user_id, u_u.name AS user_name, u_u.bank_name, u_u.account_number, u_u.account_name, m_u.id AS manager_id, m_u.name AS manager_name FROM ";
+            sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
+            whereStr += ` AND log_star_table.type=14 `;
+            if (decode.user_level < 40) {
+                whereStr += `AND u_u.pk=${decode.pk}`;
             }
         }
         if (table == 'log_subscriptiondeposit') {
@@ -3203,7 +3254,6 @@ const updateDailyPercent = (req, res) => {
             return response(req, res, -200, "권한이 없습니다.", [])
         } else {
             const { type_percent, money, money_percent, date, randombox_initialization_time, pk } = req.body;
-            console.log(req.body)
             db.query('UPDATE daily_percentage_table SET type_percent=?, money=?, money_percent=?, date=?, randombox_initialization_time=?  WHERE pk=?', [type_percent, money, money_percent, date, randombox_initialization_time, pk], (err, result) => {
                 if (err) {
                     console.log(err)

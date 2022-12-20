@@ -8,7 +8,11 @@ const serviceAccount = require("./config/privatekey_firebase.json");
 const { insertQuery, dbQueryList } = require('./query-util');
 const when = require('when')
 var ip = require('ip');
+const crypto = require('crypto')
 const requestIp = require('request-ip');
+const salt = "435f5ef2ffb83a632c843926b35ae7855bc2520021a73a043db41670bfaeb722";
+const saltRounds = 10
+const pwBytes = 64;
 const firebaseToken = 'fV0vRpDpTfCnY_VggFEgN7:APA91bHdHP6ilBpe9Wos5Y72SXFka2uAM3luANewGuw7Bx2XGnvUNjK5e5k945xwcXpW8NNei3LEaBtKT2_2A6naix8Wg5heVik8O2Aop_fu8bUibnGxuCe3RLQDtHNrMeC5gmgGRoVh';
 const fcmServerKey = "AAAA35TttWk:APA91bGLGZjdD2fgaPRh8eYyu9CDSndD97ZdO4MBypbpICClEwMADAJnt2giOaCWRvMldof5DkplMptbmyN0Fm0Q975dm-CD7i0XhrHzjgMN0EKfXHxLy4NyohEVXDHW5DBfYrlncvQh";
 firebase.initializeApp({
@@ -499,6 +503,30 @@ function getMonday(d) {
 const adminPk = () =>{
     return 74;
 }
+const makeHash = (pw_) => {
+
+    return new Promise(async (resolve, reject) => {
+        let pw = pw_;
+        if (!(typeof pw == 'string')) {
+            pw = pw.toString();
+        }
+        await crypto.pbkdf2(pw, salt, saltRounds, pwBytes, 'sha512', async (err, decoded) => {
+            // bcrypt.hash(pw, salt, async (err, hash) => {
+            let hash = decoded.toString('base64');
+            if (err) {
+                reject({
+                    code: -200,
+                    data: undefined,
+                })
+            } else {
+                resolve({
+                    code: 200,
+                    data: hash,
+                })
+            }
+        })
+    })
+}
 module.exports = {
     checkLevel, lowLevelException, nullRequestParamsOrBody,
     logRequestResponse, logResponse, logRequest,
@@ -506,5 +534,5 @@ module.exports = {
     namingImagesPath, getSQLnParams, getKewordListBySchema,
     nullResponse, lowLevelResponse, response, removeItems, returnMoment, formatPhoneNumber,
     categoryToNumber, sendAlarm, updateUserTier, getDailyPercentReturn, queryPromise, max_child_depth,
-    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk
+    getEventRandomboxPercentByTier, getDiscountPoint, commarNumber, makeMaxPage, discountOutletList, discountOutlet, getMonday, adminPk, makeHash
 }
