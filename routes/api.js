@@ -1146,11 +1146,14 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
         for (var i = 0; i < settle_list.length; i++) {
             let bool = await isExistUserParent(pk, settle_list[i].user_pk, user_obj);
             if (bool?.bool) {
+                settle_list[i].prider_count = bool?.prider_count;
                 result.push(settle_list[i]);
             }
         }
         let maxPage = makeMaxPage(result.length, 20);
-        result = result.slice((page - 1) * 20, page * 20);
+        if(page){
+            result = result.slice((page - 1) * 20, page * 20);
+        }
         let user = await dbQueryList(`SELECT id, name FROM user_table WHERE pk=${pk}`);
         user = user?.result[0];
         return response(req, res, 100, "success", { user: user, data: result, maxPage: maxPage });
@@ -1937,7 +1940,8 @@ const getMyPageContent = async (req, res) => {
             { table: "user", sql: `SELECT * FROM user_table WHERE pk=${decode?.pk}`, type: 'obj' },
             { table: "marketing", sql: `SELECT price, explain_obj FROM log_randombox_table WHERE user_pk=${decode?.pk} AND type=10`, type: 'list' },
             { table: "withdraw", sql: `SELECT price, explain_obj FROM log_star_table WHERE user_pk=${decode?.pk} AND type=4`, type: 'list' },
-            { table: "purchase", sql: `SELECT SUM(price) AS purchase FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
+            { table: "purchase_star", sql: `SELECT SUM(price) AS purchase_star FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
+            { table: "purchase_point", sql: `SELECT SUM(price) AS purchase_point FROM log_point_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
         ];
 
         for (var i = 0; i < sql_list.length; i++) {
@@ -2179,7 +2183,7 @@ const updateMaster = (req, res) => {
 
 
 
-const getGenealogyReturn = async (decode_) => {//유저기준 트리 가져오기
+const getGenealogyReturn = async (decode_,) => {//유저기준 트리 가져오기
     let decode = decode_;
     if (decode?.pk) {
         let result = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table`);
@@ -2313,7 +2317,18 @@ const getGenealogy = (req, res) => {
                 for (var i = 0; i < max_child_depth(); i++) {
                     depth_list[i] = {};
                 }
-                let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table WHERE pk=${decode?.pk}`)
+                let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
+                let marketing_list = await dbQueryList("SELECT * FROM log_randombox_table WHERE type=10 ");
+                marketing_list = marketing_list.result;
+                for(var i = 0;i<marketing_list.length;i++){
+                    if(!list[pk_idx_obj[marketing_list[i].user_pk]]?.marketing_score){
+                        list[pk_idx_obj[marketing_list[i].user_pk]].marketing_score = 0;
+                    }
+                    marketing_list[i].explain_obj = JSON.parse(marketing_list[i].explain_obj);get_score_by_tier
+                    list[pk_idx_obj[marketing_list[i].user_pk]].marketing_score += get_score_by_tier[marketing_list[i].explain_obj?.tier??0];
+                }
+                
+                let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table WHERE pk=${decode?.pk}`);
                 auth = auth?.result[0]
                 list = list.sort(function (a, b) {
                     return a.depth - b.depth;
