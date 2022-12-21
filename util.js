@@ -408,7 +408,7 @@ const getKewordListBySchema = (schema_) => {
         list = ['id', 'name', 'phone'];
     } else if (schema == 'user_subscriptiondeposit') {
         list = ['id', 'name', 'phone'];
-    } else if (schema == 'marketing') {
+    } else if (schema == 'marketing' || schema == 'week_settle' || schema == 'month_settle') {
         list = ['u_u.id', 'u_u.name'];
     } else if (schema == 'log_star') {
         list = ['user_table.id', 'user_table.name'];
