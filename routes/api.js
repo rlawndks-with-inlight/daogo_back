@@ -281,6 +281,44 @@ const insertUsetList = async () => {//데이터에 넣은유저 parent_pk 설정
 
 }
 //insertUsetList();
+const addUSerMarketing = async() => {
+    try{
+        let get_user_price_by_tier = {'화이트':5,'그린':10,'실버':15,'골드':20,'플래티넘':25};
+        let user_list = await dbQueryList("SELECT * FROM user_table");
+        user_list = user_list?.result;
+        let user_obj = {};
+        for(var i= 0;i<user_list.length;i++){
+            user_obj[user_list[i]?.id] = user_list[i];
+        }
+        let excel_list = await userList();
+        let list = [];
+        for(var i= 0;i<excel_list.length;i++){
+            excel_list[i][0] = excel_list[i][0].toLowerCase();
+            if(user_obj[excel_list[i][0]]){
+                if(get_user_price_by_tier[excel_list[i][1]]){
+                    list.push(
+                        [0,user_obj[excel_list[i][0]]?.pk,10,"",JSON.stringify({tier:get_user_price_by_tier[excel_list[i][1]]}),74,1]
+                    )
+                }else{
+                    console.log(excel_list[i][1])
+                return;
+                }
+            }else{
+                console.log(excel_list[i][0])
+                return;
+            }
+        }
+        db.beginTransaction();
+        console.log(list)
+        //let result = await insertQuery("INSERT INTO log_randombox_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES ? ",[list])
+        console.log(result);
+        db.commit();
+    }catch(err){
+        db.rollback();
+        console.log(err);
+    }
+}
+//addUSerMarketing();
 const getAddressByText = async (req, res) => {
     try {
         let { text } = req.body;
@@ -316,9 +354,7 @@ const getAddressByText = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const addCategory = (req, res) => {
 
-}
 
 const onLoginById = async (req, res) => {
     try {
@@ -1129,11 +1165,10 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let { pk, page } = req.query;
-        let monday = returnMoment(getMonday(new Date())).substring(0, 10) + ' 00:00:00';
         let sql = "";
         sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
         sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
-        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.date >= '${monday}'`;
+        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND status=0`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;
         let user_list = await dbQueryList(`SELECT pk, parent_pk, depth, prider FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
@@ -1176,7 +1211,7 @@ const onWeekSettle = async (req, res) => {
         let sql = "";
         sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
         sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
-        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.date >= '${monday}'`;
+        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.status=0`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;//이번주 매출 리스트
         let user_list = await dbQueryList("SELECT pk, parent_pk, depth, prider FROM user_table");//유저리스트
@@ -1189,7 +1224,7 @@ const onWeekSettle = async (req, res) => {
         prider_list = prider_list?.result;
         let get_price_by_tier = { 0: 0, 5: 360000, 10: 1200000, 15: 3600000, 20: 6000000, 25: 12000000 };
         let log_list = [];
-
+        let update_list = await settle_list.map(item=>{return item?.pk});
         for (i = 0; i < prider_list.length; i++) {
             prider_list[i]['settle'] = 0;
             for (var j = 0; j < settle_list.length; j++) {
@@ -1206,7 +1241,7 @@ const onWeekSettle = async (req, res) => {
                 }
             }
             if (prider_list[i]['settle'] > 0) {
-                log_list.push({ table: 'star', price: prider_list[i]['settle'], user_pk: prider_list[i]?.pk, type: 15 })
+                log_list.push({ table: 'star', price: prider_list[i]['settle'], user_pk: prider_list[i]?.pk, type: 15 });
             }
         }
         await db.beginTransaction();
@@ -1214,6 +1249,7 @@ const onWeekSettle = async (req, res) => {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
                 [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", "{}", decode?.pk])
         }
+        let update_result = await insertQuery(`UPDATE log_randombox_table SET status=1 WHERE pk IN (${update_list.join()})`)
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
