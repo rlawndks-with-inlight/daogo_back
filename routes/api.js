@@ -222,10 +222,10 @@ const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
             user_obj[user_list[i][0]] = user_list[i];
         }
         let idx = 10;
-        while(idx--){
+        while (idx--) {
             for (var i = 1; i < user_list.length; i++) {
                 if (user_obj[user_list[i][3]]) {
-                    if(user_obj[user_list[i][3]][11]!=-1){
+                    if (user_obj[user_list[i][3]][11] != -1) {
                         user_list[i][11] = user_obj[user_list[i][3]][11] + 1;
                     }
                 } else {
@@ -244,7 +244,7 @@ const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
         //console.log(user_minus_depth_count)
         //console.log(user_list)
         await db.beginTransaction();
-       // let result = await insertQuery(`INSERT INTO user_table (id, name, phone, parent_id, date, pw, payment_pw, account_name, bank_name, account_number, identification_number, depth  ) VALUES ?`,[user_list]);
+        // let result = await insertQuery(`INSERT INTO user_table (id, name, phone, parent_id, date, pw, payment_pw, account_name, bank_name, account_number, identification_number, depth  ) VALUES ?`,[user_list]);
         await await db.commit();
     } catch (err) {
         await db.rollback();
@@ -281,29 +281,29 @@ const insertUsetList = async () => {//데이터에 넣은유저 parent_pk 설정
 
 }
 //insertUsetList();
-const addUSerMarketing = async() => {
-    try{
-        let get_user_price_by_tier = {'화이트':5,'그린':10,'실버':15,'골드':20,'플래티넘':25};
+const addUSerMarketing = async () => {
+    try {
+        let get_user_price_by_tier = { '화이트': 5, '그린': 10, '실버': 15, '골드': 20, '플래티넘': 25 };
         let user_list = await dbQueryList("SELECT * FROM user_table");
         user_list = user_list?.result;
         let user_obj = {};
-        for(var i= 0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.id] = user_list[i];
         }
         let excel_list = await userList();
         let list = [];
-        for(var i= 0;i<excel_list.length;i++){
+        for (var i = 0; i < excel_list.length; i++) {
             excel_list[i][0] = excel_list[i][0].toLowerCase();
-            if(user_obj[excel_list[i][0]]){
-                if(get_user_price_by_tier[excel_list[i][1]]){
+            if (user_obj[excel_list[i][0]]) {
+                if (get_user_price_by_tier[excel_list[i][1]]) {
                     list.push(
-                        [0,user_obj[excel_list[i][0]]?.pk,10,"",JSON.stringify({tier:get_user_price_by_tier[excel_list[i][1]]}),74,1]
+                        [0, user_obj[excel_list[i][0]]?.pk, 10, "", JSON.stringify({ tier: get_user_price_by_tier[excel_list[i][1]] }), 74, 1]
                     )
-                }else{
+                } else {
                     console.log(excel_list[i][1])
-                return;
+                    return;
                 }
-            }else{
+            } else {
                 console.log(excel_list[i][0])
                 return;
             }
@@ -313,7 +313,7 @@ const addUSerMarketing = async() => {
         //let result = await insertQuery("INSERT INTO log_randombox_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES ? ",[list])
         console.log(result);
         db.commit();
-    }catch(err){
+    } catch (err) {
         db.rollback();
         console.log(err);
     }
@@ -1102,7 +1102,7 @@ const subscriptionDeposit = async (req, res) => {//청약예치금 등록
             await db.rollback();
             return response(req, res, -200, "유저의 금액은 마이너스가 될 수 없습니다.", []);
         }
-        let money_category = [{ category: 'star', kor: '스타', max: 60000 }, { category: 'esgw', kor: 'ESGW 포인트', max: 30000 }, { category: 'point', kor: '포인트', max: 10000 }];
+        let money_category = [{ category: 'star', kor: '스타', max: 60000 }, { category: 'esgw', kor: 'ESGW 포인트', max: 15000 }, { category: 'point', kor: '포인트', max: 10000 }];
         let user_subscriptiondeposit_sql = "SELECT pk";
         for (var i = 0; i < money_category.length; i++) {
             user_subscriptiondeposit_sql += `, (SELECT SUM(price) FROM log_${money_category[i].category}_table WHERE user_pk=${decode?.pk} AND type=8) AS ${money_category[i].category} `
@@ -1131,30 +1131,40 @@ const isExistUserParent = async (parent_pk, child_pk, user_obj) => {
     let bool = false;
     let current_user = { ...user_obj[child_pk] };
     let prider_count = 0;//중간에 프라이더 수
+    let prider_list = [];
     if (child_pk == parent_pk) {
+        if (user_obj[current_user['pk']]?.prider >= 2) {
+            prider_list.push(user_obj[current_user['pk']])
+        }
         return {
             bool: true,
+            prider_list: prider_list,
             prider_count: 0
         };
     } else {
         while (1) {
+            if (user_obj[current_user['pk']]?.prider >= 2) {
+                prider_list.push(user_obj[current_user['pk']])
+                prider_count++;
+            }
             if (current_user['parent_pk'] == parent_pk) {
+                if (user_obj[current_user['parent_pk']]?.prider >= 2) {
+                    prider_list.push(user_obj[current_user['parent_pk']])
+                }
                 bool = true;
                 break;
             } else {
                 if (!user_obj[current_user['parent_pk']]) {
                     break;
                 } else {
-                    if (user_obj[current_user['parent_pk']]?.prider >= 2) {
-                        prider_count++;
-                    }
                     current_user = { ...user_obj[current_user['parent_pk']] };
                 }
             }
         }
         return {
             bool: bool,
-            prider_count: prider_count
+            prider_count: prider_count,
+            prider_list: prider_list
         };
     }
 }
@@ -1171,7 +1181,7 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
         sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.status=0`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;
-        let user_list = await dbQueryList(`SELECT pk, parent_pk, depth, prider FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
+        let user_list = await dbQueryList(`SELECT pk, parent_pk, depth, prider, id FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
         user_list = user_list?.result;
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
@@ -1182,11 +1192,18 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
             let bool = await isExistUserParent(pk, settle_list[i].user_pk, user_obj);
             if (bool?.bool) {
                 settle_list[i].prider_count = bool?.prider_count;
+                if (bool?.prider_count == 0) {
+                    settle_list[i].prider_id = bool?.prider_list[0]?.id;
+                } else if (bool?.prider_count == 1) {
+                    settle_list[i].prider_id = bool?.prider_list[0]?.id;
+                } else {
+                    settle_list[i].prider_id = bool?.prider_list[prider_count - 1]?.id;
+                }
                 result.push(settle_list[i]);
             }
         }
         let maxPage = makeMaxPage(result.length, 20);
-        if(page){
+        if (page) {
             result = result.slice((page - 1) * 20, page * 20);
         }
         let user = await dbQueryList(`SELECT id, name FROM user_table WHERE pk=${pk}`);
@@ -1224,7 +1241,7 @@ const onWeekSettle = async (req, res) => {
         prider_list = prider_list?.result;
         let get_price_by_tier = { 0: 0, 5: 360000, 10: 1200000, 15: 3600000, 20: 6000000, 25: 12000000 };
         let log_list = [];
-        let update_list = await settle_list.map(item=>{return item?.pk});
+        let update_list = await settle_list.map(item => { return item?.pk });
         for (i = 0; i < prider_list.length; i++) {
             prider_list[i]['settle'] = 0;
             for (var j = 0; j < settle_list.length; j++) {
@@ -1286,7 +1303,7 @@ const addMarketing = async (req, res) => {//매출등록
         let introduce_price = 0;
         for (var i = 0; i < marketing_list.length; i++) {
             if (marketing_list[i]?.price == marketing) {
-                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj: JSON.stringify({ tier: (i + 1) * 5 }), status:0 });
+                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj: JSON.stringify({ tier: (i + 1) * 5 }), status: 0 });
                 introduce_price = marketing_list[i]?.price * 10;
                 break;
             }
@@ -1296,8 +1313,8 @@ const addMarketing = async (req, res) => {//매출등록
         }
         for (var i = 0; i < marketing_list.length; i++) {
             if (parent_user?.tier / 5 == i + 1) {
-                log_list.push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status:0 });
-                log_list.push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status:0 });
+                log_list.push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
+                log_list.push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
                 break;
             }
         }
@@ -1684,9 +1701,9 @@ const insertUserMoneyByExcel = async (req, res) => {
         }
         if (list.length > 0) {
             for (var i = 0; i < list.length; i++) {
-                if(user_obj[list[i][0]]){
+                if (user_obj[list[i][0]]) {
 
-                }else{
+                } else {
                     return response(req, res, -100, `${list[i][0]} 아이디를 찾을 수 없습니다.`, []);
                 }
                 if (!isNaN(parseFloat(list[i][2])) && list[i][2] && parseFloat(list[i][2]) != 0) {//스타
@@ -2361,14 +2378,14 @@ const getGenealogy = (req, res) => {
                 let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
                 let marketing_list = await dbQueryList("SELECT * FROM log_randombox_table WHERE type=10 ");
                 marketing_list = marketing_list.result;
-                for(var i = 0;i<marketing_list.length;i++){
-                    if(!list[pk_idx_obj[marketing_list[i].user_pk]]?.marketing_score){
+                for (var i = 0; i < marketing_list.length; i++) {
+                    if (!list[pk_idx_obj[marketing_list[i].user_pk]]?.marketing_score) {
                         list[pk_idx_obj[marketing_list[i].user_pk]].marketing_score = 0;
                     }
-                    marketing_list[i].explain_obj = JSON.parse(marketing_list[i].explain_obj);get_score_by_tier
-                    list[pk_idx_obj[marketing_list[i].user_pk]].marketing_score += get_score_by_tier[marketing_list[i].explain_obj?.tier??0];
+                    marketing_list[i].explain_obj = JSON.parse(marketing_list[i].explain_obj); get_score_by_tier
+                    list[pk_idx_obj[marketing_list[i].user_pk]].marketing_score += get_score_by_tier[marketing_list[i].explain_obj?.tier ?? 0];
                 }
-                
+
                 let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk, prider FROM user_table WHERE pk=${decode?.pk}`);
                 auth = auth?.result[0]
                 list = list.sort(function (a, b) {
