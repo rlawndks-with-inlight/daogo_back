@@ -1168,7 +1168,7 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
         let sql = "";
         sql = "SELECT log_randombox_table.*, u_u.id AS user_id, u_u.name AS user_name, m_u.id AS manager_id, m_u.name AS manager_name  FROM ";
         sql += " log_randombox_table LEFT JOIN user_table u_u ON log_randombox_table.user_pk=u_u.pk ";
-        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND status=0`;
+        sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.status=0`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;
         let user_list = await dbQueryList(`SELECT pk, parent_pk, depth, prider FROM user_table WHERE user_level=0 ORDER BY pk DESC`);
@@ -1286,7 +1286,7 @@ const addMarketing = async (req, res) => {//매출등록
         let introduce_price = 0;
         for (var i = 0; i < marketing_list.length; i++) {
             if (marketing_list[i]?.price == marketing) {
-                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj: JSON.stringify({ tier: (i + 1) * 5 }) });
+                log_list.push({ table: 'randombox', price: marketing_list[i]?.randombox, user_pk: is_exist_user?.pk, type: 10, explain_obj: JSON.stringify({ tier: (i + 1) * 5 }), status:0 });
                 introduce_price = marketing_list[i]?.price * 10;
                 break;
             }
@@ -1296,15 +1296,15 @@ const addMarketing = async (req, res) => {//매출등록
         }
         for (var i = 0; i < marketing_list.length; i++) {
             if (parent_user?.tier / 5 == i + 1) {
-                log_list.push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
-                log_list.push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }) });
+                log_list.push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status:0 });
+                log_list.push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status:0 });
                 break;
             }
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
-            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, decode?.pk])//0-출금전, 1-출금완료
+            let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, decode?.pk, log_list[i]?.status])//0-출금전, 1-출금완료
         }
         await updateUserTier(is_exist_user?.pk);
         await db.commit();
@@ -1684,6 +1684,11 @@ const insertUserMoneyByExcel = async (req, res) => {
         }
         if (list.length > 0) {
             for (var i = 0; i < list.length; i++) {
+                if(user_obj[list[i][0]]){
+
+                }else{
+                    return response(req, res, -100, `${list[i][0]} 아이디를 찾을 수 없습니다.`, []);
+                }
                 if (!isNaN(parseFloat(list[i][2])) && list[i][2] && parseFloat(list[i][2]) != 0) {//스타
                     log_obj.star.push([parseFloat(list[i][2]), list[i][6], user_obj[list[i][0]]?.pk, 5, decode?.pk, "{}"]);//price, note, user_pk, type, manager_pk, explain_obj 
                 }
