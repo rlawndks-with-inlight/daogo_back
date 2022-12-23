@@ -322,8 +322,8 @@ const addUSerMarketing = async () => {
 const getAddressByText = async (req, res) => {
     try {
         let { text } = req.body;
-        let client_id = 'pmfxkd4ept';
-        let client_secret = 't2HIUfZOkme7FF0JdIxfdwYI92cl2R5GKpMBa7Nj';
+        let client_id = 'js9t5lf3gk';
+        let client_secret = 'vGYOk1w1IU1nH8KgdjokKptVlmTFvGsWcS9f7H7I';
         let api_url = 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'; // json
 
         const coord = await axios.get(`${api_url}`, {
@@ -345,6 +345,12 @@ const getAddressByText = async (req, res) => {
                     lat: coord.data.addresses[i].y,
                     road_address: coord.data.addresses[i].roadAddress,
                     address: coord.data.addresses[i].jibunAddress
+                }
+                console.log(coord.data.addresses[i].addressElements[8])
+                for(var j = 0;j<coord.data.addresses[i].addressElements.length;j++){
+                    if(coord.data.addresses[i].addressElements[j]?.types[0]=='POSTAL_CODE'){
+                        result[i].zip_code = coord.data.addresses[i].addressElements[j]?.longName;
+                    }
                 }
             }
             return response(req, res, 100, "success", result);
