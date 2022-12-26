@@ -974,12 +974,25 @@ const requestWithdraw = async (req, res) => {//출금신청
         let withdraw_setting = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
         withdraw_setting = withdraw_setting?.result[0];
         let moment_time = returnMoment().substring(11, 16);
+        let withdraw_days = JSON.parse(withdraw_setting?.withdraw_days);
+        const zDays = [
+            { name: '일', val: 0 },
+            { name: '월', val: 1 },
+            { name: '화', val: 2 },
+            { name: '수', val: 3 },
+            { name: '목', val: 4 },
+            { name: '금', val: 5 },
+            { name: '토', val: 6 }
+        ]
+        const dayOfWeek = new Date().getDay();
+        if(!withdraw_days.includes(dayOfWeek)){
+            withdraw_days.sort();
+            return response(req, res, -100, `출금 가능 요일이 아닙니다. \n출금가능요일:${withdraw_days.map(item=>{return ' '+zDays[item].name})}`, []);
+        }
         if (moment_time >= withdraw_setting?.withdraw_start_time && moment_time <= withdraw_setting?.withdraw_end_time) {
-
         } else {
             return response(req, res, -100, `출금 시간이 아닙니다. \n출금가능시간: ${withdraw_setting?.withdraw_start_time} ~ ${withdraw_setting?.withdraw_end_time}`, []);
         }
-
         if (star < 500) {
             return response(req, res, -100, "스타는 500 이상의 금액부터 등록 가능합니다.", []);
         }
@@ -3208,9 +3221,9 @@ const updateSetting = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } else {
-            const { withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk } = req.body;
-            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_start_time=?, withdraw_end_time=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?  WHERE pk=?';
-            values = [withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, pk];
+            const { withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note,withdraw_days, pk } = req.body;
+            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_start_time=?, withdraw_end_time=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?, withdraw_days=?  WHERE pk=?';
+            values = [withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note,withdraw_days, pk];
             db.query(sql, values, (err, result) => {
                 if (err) {
                     console.log(err)
