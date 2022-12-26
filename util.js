@@ -7,7 +7,7 @@ const fcmNode = require("fcm-node");
 const serviceAccount = require("./config/privatekey_firebase.json");
 const { insertQuery, dbQueryList } = require('./query-util');
 const when = require('when')
-var ip = require('ip');
+const ip = require('ip');
 const crypto = require('crypto')
 const requestIp = require('request-ip');
 const salt = "435f5ef2ffb83a632c843926b35ae7855bc2520021a73a043db41670bfaeb722";
@@ -166,7 +166,7 @@ const logManagerAction = (req, res, item) => {
     let { user_pk, manager_note, reason_correction } = item;
     let requestIp;
     try {
-        requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '0.0.0.0'
+        requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || ip.address() || '0.0.0.0'
     } catch (err) {
         requestIp = '0.0.0.0'
     }

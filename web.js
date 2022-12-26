@@ -47,7 +47,7 @@ const HTTP_PORT = 8001;
 const HTTPS_PORT = 8443;
 
 if (is_test) {
-        http.createServer(app).listen(HTTP_PORT, function () {
+        http.createServer(app).listen(HTTP_PORT,'0.0.0.0', function () {
                 console.log("Server on " + HTTP_PORT);
                 //scheduleDaily();
         });
@@ -58,7 +58,7 @@ if (is_test) {
                 key: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/privkey.pem"),
                 cert: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/cert.pem")
         };
-        https.createServer(options, app).listen(HTTPS_PORT, function () {
+        https.createServer(options, app).listen(HTTPS_PORT,'0.0.0.0', function () {
                 console.log("Server on " + HTTPS_PORT);
                 scheduleDaily();
         });

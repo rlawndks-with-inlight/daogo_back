@@ -22,7 +22,7 @@ const {
 } = require('../query-util')
 const { userList } = require('../userList');
 const macaddress = require('node-macaddress');
-var ip = require("ip");
+const ip = require("ip");
 const when = require('when');
 const db = require('../config/db')
 const { upload } = require('../config/multerConfig')
@@ -402,15 +402,10 @@ const onLoginById = async (req, res) => {
                                 res.cookie("token", token, { httpOnly: true, maxAge: 60 * 60 * 1000 * 10 });
                                 let requestIp;
                                 try {
-                                    requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '0.0.0.0'
+                                    requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || ip.address() || '0.0.0.0'
                                 } catch (err) {
                                     requestIp = '0.0.0.0'
                                 }
-                                requestIp = ip.address();
-                                console.log(ip.address())
-                                console.log(req.headers['x-forwarded-for'])
-                                console.log(req.connection.remoteAddress)
-                                console.log(req.ip)
                                 requestIp = requestIp.replaceAll('::ffff:', '');
                                 let result1_ = await insertQuery('UPDATE user_table SET last_login=? WHERE pk=?', [returnMoment(), result1[0].pk]);
                                 let result2_ = await insertQuery('INSERT INTO log_login_table (ip, user_level, user_id, user_name) VALUES (?, ?, ?, ?)', [requestIp, result1[0].user_level, result1[0].id, result1[0].name]);
@@ -2815,7 +2810,7 @@ const getItems = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
-        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier, not_prider } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
+        let { table, level, category_pk, brand_pk, status, user_pk, keyword, limit, page, page_cut, order, increase, is_popup, prider, tier, not_prider, over_prider } = (req.query.table ? { ...req.query } : undefined) || (req.body.table ? { ...req.body } : undefined);
         let keyword_columns = getKewordListBySchema(table);
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
@@ -2848,7 +2843,10 @@ const getItems = (req, res) => {
             whereStr += ` AND price${increase == 1 ? ' > 0 ' : ' < 0'} `;
         }
         if (prider) {
-            whereStr += ` AND (prider=2 OR prider=3) `;
+            whereStr += ` AND prider=${prider} `;
+        }
+        if (over_prider) {
+            whereStr += ` AND prider >= ${over_prider} `;
         }
         if (not_prider) {
             whereStr += ` AND prider!=${not_prider} `;
