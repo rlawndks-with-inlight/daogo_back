@@ -1476,8 +1476,9 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         }
 
         let parent_list = await getParentUserList(decode);
+        let parent_log_list = [];
         if (parent_list[0]?.tier > user?.tier) {
-            purchase_list.push({
+            parent_log_list.push({
                 table: 'randombox', 
                 price: use_star_money * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count, 
                 user_pk: parent_list[0]?.pk, 
@@ -1493,6 +1494,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         }
         await db.beginTransaction();
         await insertUserMoneyLog(purchase_list);
+        await insertUserMoneyLog(parent_log_list);
         let user_money = await getUserMoneyReturn(decode?.pk);
         let negative_result = await checkUserPointNegative(user_money);
         if (negative_result) {
