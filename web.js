@@ -92,7 +92,7 @@ const scheduleDaily = () => {
                 let log_daily_initialization = await dbQueryList(`SELECT * FROM log_daily_initialization_table ORDER BY pk DESC LIMIT 1`);
                 log_daily_initialization = log_daily_initialization?.result[0];
                 if (returnMoment().substring(11, 16) == daily_data?.randombox_initialization_time) {
-                        let user_list = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk NOT IN (SELECT user_pk AS pk FROM log_star_table WHERE TYPE=7 AND TIMESTAMPDIFF(second,'2022-12-07 00:00',date) > -86400) AND user_level=0`);
+                        let user_list = await dbQueryList(`SELECT *, (SELECT SUM(price) FROM log_randombox_table WHERE user_pk=user_table.pk) AS sum_randombox FROM user_table WHERE pk NOT IN (SELECT user_pk AS pk FROM log_star_table WHERE type=7 AND date >= DATE_ADD(NOW(), INTERVAL -1 DAY)) AND user_level=0`);
                         user_list = user_list?.result;
                         let user_count = 0;
                         let daily_percent = await getDailyPercentReturn();
