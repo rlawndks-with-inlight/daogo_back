@@ -109,7 +109,8 @@ const scheduleDaily = () => {
                                         }
                                         let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list[i]?.sum_randombox ?? 0) / 100);
                                         if (randombox_point != 0) {
-                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj) VALUES (?, ?, ?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) })])
+                                                let result = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, explain_obj) VALUES (?, ?, ?, ?)`, [0, user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) })])
+                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) }), result?.result?.insertId])
                                                 await updateUserTier(user_list[i]?.pk);
                                                 user_count++;
                                         } else {
