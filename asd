@@ -832,3 +832,18 @@
 ['kbj5207', '그린'],
 ['kks7323', '실버']
 ]
+
+CREATE VIEW v_log_money AS
+  SELECT 
+  s_t.pk AS pk,
+  s_t.price AS s_t_price,
+  SUM(s_t.price) OVER(ORDER BY pk) AS s_t_sum_sal,
+  u_t.pk, AS user_pk, 
+  u_t.id, AS user_id, 
+  u_t.name AS user_name,
+  FROM log_star_table AS s_t  
+  LEFT JOIN user_table AS u_t ON s_t.user_pk=u_t.pk  
+  LEFT JOIN log_point_table AS p_t ON s_t.pk=p_t.star_pk  
+  LEFT JOIN log_randombox_table AS r_t ON s_t.pk=r_t.star_pk  
+  LEFT JOIN log_esgw_table AS e_t ON s_t.pk=e_t.star_pk
+;

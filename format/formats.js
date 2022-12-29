@@ -1,12 +1,11 @@
 const { insertQuery } = require('../query-util')
 
-const insertUserMoneyLog = async (log_list_) => {
+const insertUserMoneyLog = async (log_list_, start_star_pk) => {
     let log_list = [...log_list_];
     if (log_list.length <= 0) {
         return;
     }
     let star_pk = 0;
-
     let is_exist_star = false;
     for (var i = 0; i < log_list.length; i++) {
         if (log_list[i]?.table == 'star') {
@@ -38,12 +37,19 @@ const insertUserMoneyLog = async (log_list_) => {
             insert_list.push(star_pk);
             insert_keys.push('star_pk');
             insert_values.push('?');
+        }else{
+            if(log_list[i]?.table == 'star' && start_star_pk){
+                insert_list.push(start_star_pk);
+                insert_keys.push('star_pk');
+                insert_values.push('?');
+            }
         }
         let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (${insert_keys.join()}) VALUES (${insert_values.join()})`, insert_list);
         if (log_list[i]?.table == 'star') {
             star_pk = result?.result?.insertId;
         }
     }
+    return star_pk;
 }
 const insertUserMoneyLogObjFormat = (table, price, user_pk, type, explain_obj, note, manager_pk) => {
     return {
