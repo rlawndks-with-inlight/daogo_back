@@ -103,6 +103,99 @@ const getNoticeAndAlarmLastPk = (req, res) => {
 
     }
 }
+const settingUser = async () => {
+    try {
+        let user_star_obj = {};
+        let user_point_obj = {};
+        let user_randombox_obj = {};
+        let user_esgw_obj = {};
+        let user_money_obj = {};
+        
+        let user_star = await dbQueryList(`SELECT user_pk, SUM(price) AS user_star FROM log_star_table GROUP BY user_pk`);
+        user_star = user_star?.result;
+        for(var i = 0;i<user_star.length;i++){
+            user_star_obj[user_star[i]?.user_pk] = user_star[i]?.user_star;
+        }
+        let user_point = await dbQueryList(`SELECT user_pk, SUM(price) AS user_point FROM log_point_table GROUP BY user_pk`);
+        user_point = user_point?.result;
+        for(var i = 0;i<user_point.length;i++){
+            user_point_obj[user_point[i]?.user_pk] = user_point[i]?.user_point;
+        }
+        let user_randombox = await dbQueryList(`SELECT user_pk, SUM(price) AS user_randombox FROM log_randombox_table GROUP BY user_pk`);
+        user_randombox = user_randombox?.result;
+        for(var i = 0;i<user_randombox.length;i++){
+            user_randombox_obj[user_randombox[i]?.user_pk] = user_randombox[i]?.user_randombox;
+        }
+        let user_esgw = await dbQueryList(`SELECT user_pk, SUM(price) AS user_esgw FROM log_esgw_table GROUP BY user_pk`);
+        user_esgw = user_esgw?.result;
+        for(var i = 0;i<user_esgw.length;i++){
+            user_esgw_obj[user_esgw[i]?.user_pk] = user_esgw[i]?.user_esgw;
+        }
+        let user_money = await dbQueryList(`SELECT user_pk, SUM(s_t_price) AS s_t_sum, SUM(p_t_price) AS p_t_sum, SUM(e_t_price) AS e_t_sum, SUM(r_t_price) AS r_t_sum FROM v_log_money GROUP BY user_pk ORDER BY user_pk DESC`);
+        user_money = user_money?.result;
+        let insert_star_list = [];
+        let insert_point_list = [];
+        let insert_point_reset_list = [];
+        let insert_randombox_list = [];
+        let insert_randombox_reset_list = [];
+        let insert_esgw_list = [];
+        let insert_esgw_reset_list = [];
+        for(var i = 0;i<user_money.length;i++){
+
+            if(!user_money[i]?.s_t_sum){
+                user_money[i].s_t_sum = 0;
+            }
+            if(!user_money[i]?.p_t_sum){
+                user_money[i].p_t_sum = 0;
+            }
+            if(!user_money[i]['e_t_sum']){
+                user_money[i].e_t_sum = 0;
+            }
+            if(!user_money[i]?.r_t_sum){
+                user_money[i].r_t_sum = 0;
+            }
+            if(!user_star_obj[user_money[i].user_pk]){
+                user_star_obj[user_money[i].user_pk] = 0;
+            }
+            if(!user_point_obj[user_money[i].user_pk]){
+                user_point_obj[user_money[i].user_pk] = 0;
+            }
+            if(!user_randombox_obj[user_money[i].user_pk]){
+                user_randombox_obj[user_money[i].user_pk] = 0;
+            }
+            if(!user_esgw_obj[user_money[i].user_pk]){
+                user_esgw_obj[user_money[i].user_pk] = 0;
+            }
+            insert_star_list[i] = [i+1, 0, user_money[i].user_pk, 5,'{}',''];//pk, price, user_pk, type, explain_obj, note
+            
+            insert_point_list.push([i+1, (user_point_obj[user_money[i].user_pk] - user_money[i].p_t_sum), user_money[i].user_pk, 5,'{}','']);
+            insert_point_reset_list.push([ (user_money[i].p_t_sum-user_point_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
+            
+            insert_randombox_list.push([i+1, (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum), user_money[i].user_pk, 5,'{}','']);
+            insert_randombox_reset_list.push([ (user_money[i].r_t_sum-user_randombox_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
+
+            insert_esgw_list.push([i+1,  (user_esgw_obj[user_money[i].user_pk] - user_money[i].e_t_sum), user_money[i].user_pk, 5,'{}','']);
+            insert_esgw_reset_list.push([  (user_money[i].e_t_sum-user_esgw_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
+            if((user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum)>0.5 || (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum)< -0.5){
+                console.log(user_randombox_obj[user_money[i].user_pk])
+                console.log(user_money[i].r_t_sum)
+            }
+        }
+        
+        //await db.beginTransaction();
+        // let star_log = await insertQuery("INSERT INTO log_star_table (pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_star_list]);
+        // let point_log = await insertQuery("INSERT INTO log_point_table (star_pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_point_list]);
+        // let point_reset_log = await insertQuery("INSERT INTO log_point_table ( price, user_pk, type, explain_obj, note) VALUES ?",[insert_point_reset_list]);
+        // let randombox_log = await insertQuery("INSERT INTO log_randombox_table (star_pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_randombox_list]);
+        // let randombox_reset_log = await insertQuery("INSERT INTO log_randombox_table ( price, user_pk, type, explain_obj, note) VALUES ?",[insert_randombox_reset_list]);
+        // let esgw_log = await insertQuery("INSERT INTO log_esgw_table (star_pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_esgw_list]);
+        // let esgw_reset_log = await insertQuery("INSERT INTO log_esgw_table ( price, user_pk, type, explain_obj, note) VALUES ?",[insert_esgw_reset_list]);
+    } catch (err) {
+        await db.rollback();
+        console.log(err);
+    }
+}
+//settingUser();
 const updateAlarm = (req, res) => {
     try {
         // 바로할지, 0-1, 요일, 시간, 
@@ -963,26 +1056,26 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
             if (parent_user_list[i]?.pay_user_count >= 10 && (decode?.depth - parent_user_list[i]?.depth <= 15)) {
                 if (parent_user_list[i]?.tier > 0) {
                     parent_log_list[parent_log_list.length] = [];
-                    parent_log_list[parent_log_list.length-1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
-                    parent_log_list[parent_log_list.length-1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 5 && (decode?.depth - parent_user_list[i]?.depth <= 10)) {
                 if (parent_user_list[i]?.tier > 0) {
                     parent_log_list[parent_log_list.length] = [];
-                    parent_log_list[parent_log_list.length-1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
-                    parent_log_list[parent_log_list.length-1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 3 && (decode?.depth - parent_user_list[i]?.depth <= 5)) {
                 if (parent_user_list[i]?.tier > 0) {
                     parent_log_list[parent_log_list.length] = [];
-                    parent_log_list[parent_log_list.length-1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
-                    parent_log_list[parent_log_list.length-1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
                 }
             } else if (parent_user_list[i]?.pay_user_count >= 1 && (decode?.depth - parent_user_list[i]?.depth <= 2)) {
                 if (parent_user_list[i]?.tier > 0) {
                     parent_log_list[parent_log_list.length] = [];
-                    parent_log_list[parent_log_list.length-1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
-                    parent_log_list[parent_log_list.length-1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'star', price: 0, user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id }) });
+                    parent_log_list[parent_log_list.length - 1].push({ table: 'randombox', price: star * (getEventRandomboxPercentByTier(parent_user_list[i]?.tier) / 100), user_pk: parent_user_list[i]?.pk, type: 11, explain_obj: JSON.stringify({ user_id: user?.id, percent: getEventRandomboxPercentByTier(parent_user_list[i]?.tier) }) });
                 }
             } else {
 
@@ -1376,8 +1469,8 @@ const addMarketing = async (req, res) => {//매출등록
         for (var i = 0; i < marketing_list.length; i++) {
             if (parent_user?.tier / 5 == i + 1) {
                 log_marketing_list[log_marketing_list.length] = [];
-                log_marketing_list[log_marketing_list.length-1].push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
-                log_marketing_list[log_marketing_list.length-1].push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
+                log_marketing_list[log_marketing_list.length - 1].push({ table: 'star', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.8, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
+                log_marketing_list[log_marketing_list.length - 1].push({ table: 'point', price: introduce_price * (marketing_list[i]?.introduce_percent / 10) * 0.2, user_pk: parent_user?.pk, type: 10, explain_obj: JSON.stringify({ introduced_pk: is_exist_user?.pk, introduced_id: is_exist_user?.id, introduced_name: is_exist_user?.name }), status: 0 });
                 break;
             }
         }
@@ -1461,7 +1554,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         })
         if (item?.randombox_point > 0) {//랜덤박스 포인트 지급 받을 시 랜덤박스 지급 받음
             purchase_list.push({
-                table: 'randombox', price: item?.randombox_point * item_count, user_pk: decode?.pk, type: 13, item_pk: item?.pk, 
+                table: 'randombox', price: item?.randombox_point * item_count, user_pk: decode?.pk, type: 13, item_pk: item?.pk,
                 explain_obj: JSON.stringify({
                     request: request,
                     name: name,
@@ -1475,17 +1568,17 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
             })
         }
 
-        
+
         await db.beginTransaction();
         let purchase_result = await insertUserMoneyLog(purchase_list);
         let parent_list = await getParentUserList(decode);
         let parent_log_list = [];
         if (parent_list[0]?.tier > user?.tier) {
             parent_log_list.push({
-                table: 'randombox', 
-                price: use_star_money * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count, 
-                user_pk: parent_list[0]?.pk, 
-                type: 12, 
+                table: 'randombox',
+                price: use_star_money * ((introduce_percent_obj_by_tier[parent_list[0]?.tier] - introduce_percent_obj_by_tier[user?.tier]) / 100) * item_count,
+                user_pk: parent_list[0]?.pk,
+                type: 12,
                 item_pk: item?.pk,
                 explain_obj: JSON.stringify({
                     item_pk: item?.pk,
@@ -1634,7 +1727,7 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
                             manager_pk: decode?.pk,
                             explain_obj: JSON.stringify({ user_pk: star_log?.user_pk, user_id: sell_user?.id })
                         })
-                    } 
+                    }
                 }
                 await insertUserMoneyLog(purchase_log_list);
                 await insertUserMoneyLog(parent_log_list);
@@ -1739,32 +1832,32 @@ const insertUserMoneyByExcel = async (req, res) => {
                     return response(req, res, -100, `${list[i][0]} 아이디를 찾을 수 없습니다.`, []);
                 }
                 if (!isNaN(parseFloat(list[i][2])) && list[i][2] && parseFloat(list[i][2]) != 0) {//스타
-                    if(!log_obj[log_obj.length]){
+                    if (!log_obj[log_obj.length]) {
                         log_obj[log_obj.length] = [];
                     }
-                    log_obj[log_obj.length-1].push({table:'star',price:parseFloat(list[i][2]), note:list[i][6], user_pk:user_obj[list[i][0]]?.pk, type:5, manager_pk:decode?.pk, explain_obj:"{}"});
+                    log_obj[log_obj.length - 1].push({ table: 'star', price: parseFloat(list[i][2]), note: list[i][6], user_pk: user_obj[list[i][0]]?.pk, type: 5, manager_pk: decode?.pk, explain_obj: "{}" });
                 }
                 if (!isNaN(parseFloat(list[i][3])) && list[i][3] && parseFloat(list[i][3]) != 0) {//포인트
-                    if(!log_obj[log_obj.length]){
+                    if (!log_obj[log_obj.length]) {
                         log_obj[log_obj.length] = [];
                     }
-                    log_obj[log_obj.length-1].push({table:'point',price:parseFloat(list[i][3]), note:list[i][6], user_pk:user_obj[list[i][0]]?.pk, type:5, manager_pk:decode?.pk, explain_obj:"{}"});
+                    log_obj[log_obj.length - 1].push({ table: 'point', price: parseFloat(list[i][3]), note: list[i][6], user_pk: user_obj[list[i][0]]?.pk, type: 5, manager_pk: decode?.pk, explain_obj: "{}" });
                 }
                 if (!isNaN(parseFloat(list[i][4])) && list[i][4] && parseFloat(list[i][4]) != 0) {//랜덤박스
-                    if(!log_obj[log_obj.length]){
+                    if (!log_obj[log_obj.length]) {
                         log_obj[log_obj.length] = [];
                     }
-                    log_obj[log_obj.length-1].push({table:'randombox',price:parseFloat(list[i][4]), note:list[i][6], user_pk:user_obj[list[i][0]]?.pk, type:5, manager_pk:decode?.pk, explain_obj:"{}"});
+                    log_obj[log_obj.length - 1].push({ table: 'randombox', price: parseFloat(list[i][4]), note: list[i][6], user_pk: user_obj[list[i][0]]?.pk, type: 5, manager_pk: decode?.pk, explain_obj: "{}" });
                 }
                 if (!isNaN(parseFloat(list[i][5])) && list[i][5] && parseFloat(list[i][5]) != 0) {//esgw
-                    if(!log_obj[log_obj.length]){
+                    if (!log_obj[log_obj.length]) {
                         log_obj[log_obj.length] = [];
                     }
-                    log_obj[log_obj.length-1].push({table:'esgw',price:parseFloat(list[i][5]), note:list[i][6], user_pk:user_obj[list[i][0]]?.pk, type:5, manager_pk:decode?.pk, explain_obj:"{}"});
+                    log_obj[log_obj.length - 1].push({ table: 'esgw', price: parseFloat(list[i][5]), note: list[i][6], user_pk: user_obj[list[i][0]]?.pk, type: 5, manager_pk: decode?.pk, explain_obj: "{}" });
                 }
             }
             await db.beginTransaction();
-            for(var i = 0;i<log_obj.length;i++){
+            for (var i = 0; i < log_obj.length; i++) {
                 await insertUserMoneyLog(log_obj[i]);
                 await updateUserTier(log_obj[i][0]?.user_pk);
             }
@@ -1997,7 +2090,7 @@ const getUserToken = async (req, res) => {
             let result = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
             if (result?.code > 0) {
                 result = result?.result[0];
-                result['sell_outlet'] = sell_outlet?.result[0]??0;
+                result['sell_outlet'] = sell_outlet?.result[0] ?? 0;
                 res.send(result);
             } else {
                 res.send({
@@ -2919,17 +3012,12 @@ const getItems = (req, res) => {
                 whereStr += `AND user_pk=${decode.pk} `;
             }
         }
-        if(table=='log_money'){
-            pageSql = 'SELECT COUNT(*) FROM log_star_table AS s_t ';
-            sql = `SELECT s_t.pk, u_t.id AS user_id, u_t.name AS user_name `; 
-            sql += ` FROM log_star_table AS s_t `;
-            sql += ` LEFT JOIN user_table AS u_t ON s_t.user_pk=u_t.pk `;
-            sql += ` LEFT JOIN log_point_table AS p_t ON s_t.pk=p_t.star_pk `;
-            sql += ` LEFT JOIN log_randombox_table AS r_t ON s_t.pk=r_t.star_pk `;
-            sql += ` LEFT JOIN log_esgw_table AS e_t ON s_t.pk=e_t.star_pk `;
-            console.log(sql)
+        if (table == 'log_money') {
+            pageSql = 'SELECT COUNT(*) FROM v_log_money ';
+            sql = 'SELECT *, SUM(s_t_price) OVER(ORDER BY pk) AS s_t_sum, SUM(p_t_price) OVER(ORDER BY pk) AS p_t_sum, SUM(r_t_price) OVER(ORDER BY pk) AS r_t_sum, SUM(e_t_price) OVER(ORDER BY pk) AS e_t_sum FROM v_log_money '
+            console.log(decode.pk)
             if (decode.user_level < 40) {
-                whereStr += ` AND s_t.user_pk=${decode.pk} `;
+                whereStr += ` AND user_pk=${decode.pk} `;
             }
         }
         if (table == 'week_settle') {
@@ -2990,7 +3078,7 @@ const getItems = (req, res) => {
             sql += "  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk ";
             whereStr += ` AND log_randombox_table.type=10 `;
         }
-        
+
         if (table == 'user_subscriptiondeposit') {
             pageSql = `SELECT COUNT(*) FROM user_table `;
             sql = "SELECT * "
@@ -3138,9 +3226,9 @@ const getGiftHistory = async (req, res) => {
             // {table:"randombox",sql:""},
             //  {table:"star",sql:""},
             // {table:"point",sql:""},
-            { table: "star", sql: "SELECT *, '스타' AS category  FROM log_star_table WHERE type=3 AND price < 0  ", type: 'list' },
-            { table: "point", sql: "SELECT *, '포인트' AS category  FROM log_point_table WHERE type=3 AND price < 0 ", type: 'list' },
-            { table: "esgw", sql: "SELECT *, 'ESGW 포인트' AS category  FROM log_esgw_table WHERE type=3 AND price < 0 ", type: 'list' },
+            { table: "star", sql: `SELECT *, '스타' AS category  FROM log_star_table WHERE type=3 AND price < 0  AND user_pk=${decode?.pk}`, type: 'list' },
+            { table: "point", sql: `SELECT *, '포인트' AS category  FROM log_point_table WHERE type=3 AND price < 0 AND user_pk=${decode?.pk}`, type: 'list' },
+            { table: "esgw", sql: `SELECT *, 'ESGW 포인트' AS category  FROM log_esgw_table WHERE type=3 AND price < 0 AND user_pk=${decode?.pk}`, type: 'list' },
         ];
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
@@ -3158,7 +3246,7 @@ const getGiftHistory = async (req, res) => {
             let y = b.date.toLowerCase();
             if (x > y) {
                 return -1;
-            }
+            }s_t_sum
             if (x < y) {
                 return 1;
             }
@@ -3172,6 +3260,29 @@ const getGiftHistory = async (req, res) => {
             return response(req, res, 100, "success", ans_list)
         }
     } catch (err) {
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
+    }
+}
+const getExchangeHistory = async(req, res) =>{
+    try{
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다.", [])
+        }
+        let {page, page_cut} = req.query;
+        let sql = "SELECT log_star_table.*, u_u.id AS user_id, u_u.name AS user_name, u_u.bank_name, u_u.account_number, u_u.account_name, m_u.id AS manager_id, m_u.name AS manager_name FROM ";
+            sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+            sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
+            sql += ` WHERE log_star_table.user_pk=${decode?.pk} AND log_star_table.type=4 AND log_star_table.price < 0 ORDER BY pk DESC`;
+        let result = await dbQueryList(sql);
+        result = result?.result;
+        if (page) {
+            return response(req, res, 100, "success", { maxPage: result.length, data: result.slice((page - 1) * page_cut, page * page_cut) })
+        } else {
+            return response(req, res, 100, "success", result)
+        }
+    }catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
@@ -3400,5 +3511,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory
 };
