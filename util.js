@@ -426,6 +426,8 @@ const getKewordListBySchema = (schema_) => {
         list = ['user_table.id', 'user_table.name'];
     } else if (schema == 'exchange') {
         list = ['u_u.id', 'u_u.name', 'u_u.zip_code', 'u_u.bank_name', 'u_u.account_number', 'u_u.account_name'];
+    }else if (schema == 'outlet_order') {
+        list = ['user_table.id','user_table.name'];
     } else {
         link = [];
     }

@@ -110,25 +110,25 @@ const settingUser = async () => {
         let user_randombox_obj = {};
         let user_esgw_obj = {};
         let user_money_obj = {};
-        
+
         let user_star = await dbQueryList(`SELECT user_pk, SUM(price) AS user_star FROM log_star_table GROUP BY user_pk`);
         user_star = user_star?.result;
-        for(var i = 0;i<user_star.length;i++){
+        for (var i = 0; i < user_star.length; i++) {
             user_star_obj[user_star[i]?.user_pk] = user_star[i]?.user_star;
         }
         let user_point = await dbQueryList(`SELECT user_pk, SUM(price) AS user_point FROM log_point_table GROUP BY user_pk`);
         user_point = user_point?.result;
-        for(var i = 0;i<user_point.length;i++){
+        for (var i = 0; i < user_point.length; i++) {
             user_point_obj[user_point[i]?.user_pk] = user_point[i]?.user_point;
         }
         let user_randombox = await dbQueryList(`SELECT user_pk, SUM(price) AS user_randombox FROM log_randombox_table GROUP BY user_pk`);
         user_randombox = user_randombox?.result;
-        for(var i = 0;i<user_randombox.length;i++){
+        for (var i = 0; i < user_randombox.length; i++) {
             user_randombox_obj[user_randombox[i]?.user_pk] = user_randombox[i]?.user_randombox;
         }
         let user_esgw = await dbQueryList(`SELECT user_pk, SUM(price) AS user_esgw FROM log_esgw_table GROUP BY user_pk`);
         user_esgw = user_esgw?.result;
-        for(var i = 0;i<user_esgw.length;i++){
+        for (var i = 0; i < user_esgw.length; i++) {
             user_esgw_obj[user_esgw[i]?.user_pk] = user_esgw[i]?.user_esgw;
         }
         let user_money = await dbQueryList(`SELECT user_pk, SUM(s_t_price) AS s_t_sum, SUM(p_t_price) AS p_t_sum, SUM(e_t_price) AS e_t_sum, SUM(r_t_price) AS r_t_sum FROM v_log_money GROUP BY user_pk ORDER BY user_pk DESC`);
@@ -140,48 +140,48 @@ const settingUser = async () => {
         let insert_randombox_reset_list = [];
         let insert_esgw_list = [];
         let insert_esgw_reset_list = [];
-        for(var i = 0;i<user_money.length;i++){
+        for (var i = 0; i < user_money.length; i++) {
 
-            if(!user_money[i]?.s_t_sum){
+            if (!user_money[i]?.s_t_sum) {
                 user_money[i].s_t_sum = 0;
             }
-            if(!user_money[i]?.p_t_sum){
+            if (!user_money[i]?.p_t_sum) {
                 user_money[i].p_t_sum = 0;
             }
-            if(!user_money[i]['e_t_sum']){
+            if (!user_money[i]['e_t_sum']) {
                 user_money[i].e_t_sum = 0;
             }
-            if(!user_money[i]?.r_t_sum){
+            if (!user_money[i]?.r_t_sum) {
                 user_money[i].r_t_sum = 0;
             }
-            if(!user_star_obj[user_money[i].user_pk]){
+            if (!user_star_obj[user_money[i].user_pk]) {
                 user_star_obj[user_money[i].user_pk] = 0;
             }
-            if(!user_point_obj[user_money[i].user_pk]){
+            if (!user_point_obj[user_money[i].user_pk]) {
                 user_point_obj[user_money[i].user_pk] = 0;
             }
-            if(!user_randombox_obj[user_money[i].user_pk]){
+            if (!user_randombox_obj[user_money[i].user_pk]) {
                 user_randombox_obj[user_money[i].user_pk] = 0;
             }
-            if(!user_esgw_obj[user_money[i].user_pk]){
+            if (!user_esgw_obj[user_money[i].user_pk]) {
                 user_esgw_obj[user_money[i].user_pk] = 0;
             }
-            insert_star_list[i] = [i+1, 0, user_money[i].user_pk, 5,'{}',''];//pk, price, user_pk, type, explain_obj, note
-            
-            insert_point_list.push([i+1, (user_point_obj[user_money[i].user_pk] - user_money[i].p_t_sum), user_money[i].user_pk, 5,'{}','']);
-            insert_point_reset_list.push([ (user_money[i].p_t_sum-user_point_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
-            
-            insert_randombox_list.push([i+1, (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum), user_money[i].user_pk, 5,'{}','']);
-            insert_randombox_reset_list.push([ (user_money[i].r_t_sum-user_randombox_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
+            insert_star_list[i] = [i + 1, 0, user_money[i].user_pk, 5, '{}', ''];//pk, price, user_pk, type, explain_obj, note
 
-            insert_esgw_list.push([i+1,  (user_esgw_obj[user_money[i].user_pk] - user_money[i].e_t_sum), user_money[i].user_pk, 5,'{}','']);
-            insert_esgw_reset_list.push([  (user_money[i].e_t_sum-user_esgw_obj[user_money[i].user_pk]), user_money[i].user_pk, 5,'{}','']);
-            if((user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum)>0.5 || (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum)< -0.5){
+            insert_point_list.push([i + 1, (user_point_obj[user_money[i].user_pk] - user_money[i].p_t_sum), user_money[i].user_pk, 5, '{}', '']);
+            insert_point_reset_list.push([(user_money[i].p_t_sum - user_point_obj[user_money[i].user_pk]), user_money[i].user_pk, 5, '{}', '']);
+
+            insert_randombox_list.push([i + 1, (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum), user_money[i].user_pk, 5, '{}', '']);
+            insert_randombox_reset_list.push([(user_money[i].r_t_sum - user_randombox_obj[user_money[i].user_pk]), user_money[i].user_pk, 5, '{}', '']);
+
+            insert_esgw_list.push([i + 1, (user_esgw_obj[user_money[i].user_pk] - user_money[i].e_t_sum), user_money[i].user_pk, 5, '{}', '']);
+            insert_esgw_reset_list.push([(user_money[i].e_t_sum - user_esgw_obj[user_money[i].user_pk]), user_money[i].user_pk, 5, '{}', '']);
+            if ((user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum) > 0.5 || (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum) < -0.5) {
                 console.log(user_randombox_obj[user_money[i].user_pk])
                 console.log(user_money[i].r_t_sum)
             }
         }
-        
+
         //await db.beginTransaction();
         // let star_log = await insertQuery("INSERT INTO log_star_table (pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_star_list]);
         // let point_log = await insertQuery("INSERT INTO log_point_table (star_pk, price, user_pk, type, explain_obj, note) VALUES ?",[insert_point_list]);
@@ -996,15 +996,18 @@ const onGift = async (req, res) => {//선물
         }
         let send_user_log_list = [];
         let get_user_log_list = [];
-        send_user_log_list.push({ table: 'star', price: (send_star ?? 0) * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
-        get_user_log_list.push({ table: 'star', price: (send_star ?? 0) * (97 / 100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+        let gift_commission = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
+        gift_commission = gift_commission?.result[0];
+        console.log(gift_commission);
+        send_user_log_list.push({ table: 'star', price: ((send_star ?? 0) + (send_star ?? 0) * (gift_commission?.gift_star_commission_percent ?? 0) / 100) * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name, commission: gift_commission?.gift_star_commission_percent }) })
+        get_user_log_list.push({ table: 'star', price: (send_star ?? 0), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         if (send_point && send_point > 0) {
-            send_user_log_list.push({ table: 'point', price: send_point * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
-            get_user_log_list.push({ table: 'point', price: send_point * (97 / 100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+            send_user_log_list.push({ table: 'point', price: ((send_point ?? 0) + (send_point ?? 0) * (gift_commission?.gift_point_commission_percent ?? 0) / 100) * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name, commission: gift_commission?.gift_point_commission_percent }) })
+            get_user_log_list.push({ table: 'point', price: send_point ?? 0, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         if (send_esgw && send_esgw > 0) {
-            send_user_log_list.push({ table: 'esgw', price: send_esgw * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name }) })
-            get_user_log_list.push({ table: 'esgw', price: send_esgw * (97 / 100), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
+            send_user_log_list.push({ table: 'esgw', price: ((send_esgw ?? 0) + (send_esgw ?? 0) * (gift_commission?.gift_esgw_commission_percent ?? 0) / 100) * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name, commission: gift_commission?.gift_esgw_commission_percent }) })
+            get_user_log_list.push({ table: 'esgw', price: send_esgw ?? 0, user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         }
         await db.beginTransaction();
         await insertUserMoneyLog(send_user_log_list);
@@ -1350,7 +1353,7 @@ const getWeekSettleChild = async (req, res) => {//이번주 산하 유저의 매
                 } else if (bool?.prider_count == 1) {
                     settle_list[i].prider_id = bool?.prider_list[0]?.id;
                 } else {
-                    settle_list[i].prider_id = bool?.prider_list[prider_count - 1]?.id;
+                    settle_list[i].prider_id = bool?.prider_list[bool?.prider_count - 1]?.id;
                 }
                 result.push(settle_list[i]);
             }
@@ -1397,27 +1400,43 @@ const onWeekSettle = async (req, res) => {//주정산
         let update_list = await settle_list.map(item => { return item?.pk });
         for (i = 0; i < prider_list.length; i++) {
             prider_list[i]['settle'] = 0;
+            prider_list[i]['user_list'] = [];
             for (var j = 0; j < settle_list.length; j++) {
                 let bool = await isExistUserParent(prider_list[i]?.pk, settle_list[j].user_pk, user_obj);
                 if (bool?.bool) {
                     let settle_obj = JSON.parse(settle_list[j]?.explain_obj);
                     if (bool?.prider_count >= 2) {
                         prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 0;
+                        prider_list[i]['user_list'].push({
+                            user_id: user_obj[settle_list[j].user_pk]?.id,
+                            percent: 0,
+                            star: (get_price_by_tier[settle_obj['tier']] / 10000 * 0)
+                        })
                     } else if (bool?.prider_count == 1) {
                         prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 0.5;
+                        prider_list[i]['user_list'].push({
+                            user_id: user_obj[settle_list[j].user_pk]?.id,
+                            percent: 0.5,
+                            star: (get_price_by_tier[settle_obj['tier']] / 10000 * 0.5)
+                        })
                     } else if (bool?.prider_count == 0) {
                         prider_list[i]['settle'] += get_price_by_tier[settle_obj['tier']] / 10000 * 3;
+                        prider_list[i]['user_list'].push({
+                            user_id: user_obj[settle_list[j].user_pk]?.id,
+                            percent: 3,
+                            star: (get_price_by_tier[settle_obj['tier']] / 10000 * 3)
+                        })
                     }
                 }
             }
             if (prider_list[i]['settle'] > 0) {
-                log_list.push({ table: 'star', price: prider_list[i]['settle'], user_pk: prider_list[i]?.pk, type: 15 });
+                log_list.push({ table: 'star', price: prider_list[i]['settle'], user_pk: prider_list[i]?.pk, type: 15, explain_obj: JSON.stringify({ list: prider_list[i]['user_list'] }) });
             }
         }
         await db.beginTransaction();
         for (var i = 0; i < log_list?.length; i++) {
             let result = await insertQuery(`INSERT INTO log_${log_list[i]?.table}_table (price, user_pk, type, note, explain_obj, manager_pk) VALUES (?, ?, ?, ?, ?, ?)`,
-                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", "{}", decode?.pk])
+                [log_list[i]?.price, log_list[i]?.user_pk, log_list[i]?.type, "", log_list[i]?.explain_obj, decode?.pk])
         }
         let update_result = await insertQuery(`UPDATE log_randombox_table SET status=1 WHERE pk IN (${update_list.join()})`)
         await db.commit();
@@ -1430,6 +1449,7 @@ const onWeekSettle = async (req, res) => {//주정산
 
     }
 }
+
 const addMarketing = async (req, res) => {//매출등록
     try {
         const decode = checkLevel(req.cookies.token, 40);
@@ -1660,15 +1680,71 @@ const onChangeExchangeStatus = async (req, res) => {//출금신청 관리
 
     }
 }
+const onChangeExchangeBatch = async (req, res) => {
+    try {
+        const { status, join_list } = req.body;
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let exchange_list = await dbQueryList(`SELECT * FROM log_star_table WHERE pk IN (${join_list.join()})`);
+        exchange_list = exchange_list?.result;
+        let must_number = 0;
+        let must_number_str = "";
+        if(status==-1 || status==1){
+            must_number = 0;
+            must_number_str = "접수대기 상태가 아닌 곳에 체크가 되어 있습니다.";
+        }else if(status==2){
+            must_number = 1;
+            must_number_str = "접수완료 상태가 아닌 곳에 체크가 되어 있습니다.";
+
+        }else{
+            alert("잘못된 값입니다.");
+            return;
+        }
+        for(var i = 0;i<exchange_list.length;i++){
+            if(exchange_list[i]?.status!=must_number){
+                return response(req, res, -150, must_number_str, []);
+            }
+        }
+        await db.beginTransaction();
+        let result = await insertQuery(`UPDATE log_star_table SET status=${status}, manager_pk=${decode?.pk} WHERE pk IN(${join_list.join()})`);
+        if(status==-1){
+            let log_list = [];
+            for(var i = 0;i<exchange_list.length;i++){
+                log_list.push([
+                    exchange_list[i]?.price*(-1),
+                    exchange_list[i]?.user_pk,
+                    4,
+                    decode?.pk,
+                    "{}",
+                    -1,
+                    ""
+                ])
+            }
+            let result2 = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, manager_pk, explain_obj, status, note) VALUES ?`,[log_list]);
+        }
+        await db.commit();
+        return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
     try {
         const { pk, status, invoice, return_reason } = req.body;
         if (!pk || !status) {
             return response(req, res, -100, "필수값이 비어 있습니다.", []);
         }
-
-        const decode = checkLevel(req.cookies.token, 40);
+        const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        if (decode.user_level < 40 && status != -2) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE pk=${pk}`);
@@ -1683,7 +1759,7 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         await db.beginTransaction();
         let user_list = [star_log?.user_pk];
 
-        if (status == -1 || status == 1) {
+        if (status == -1 || status == 1 || status == -2) {
             sql += ",manager_pk=? ";
             values.push(decode?.pk);
             if (status == 1) {
@@ -3246,7 +3322,7 @@ const getGiftHistory = async (req, res) => {
             let y = b.date.toLowerCase();
             if (x > y) {
                 return -1;
-            }s_t_sum
+            }
             if (x < y) {
                 return 1;
             }
@@ -3264,17 +3340,17 @@ const getGiftHistory = async (req, res) => {
         return response(req, res, -200, "서버 에러 발생", [])
     }
 }
-const getExchangeHistory = async(req, res) =>{
-    try{
+const getExchangeHistory = async (req, res) => {
+    try {
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         }
-        let {page, page_cut} = req.query;
+        let { page, page_cut } = req.query;
         let sql = "SELECT log_star_table.*, u_u.id AS user_id, u_u.name AS user_name, u_u.bank_name, u_u.account_number, u_u.account_name, m_u.id AS manager_id, m_u.name AS manager_name FROM ";
-            sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
-            sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
-            sql += ` WHERE log_star_table.user_pk=${decode?.pk} AND log_star_table.type=4 AND log_star_table.price < 0 ORDER BY pk DESC`;
+        sql += " log_star_table LEFT JOIN user_table u_u ON log_star_table.user_pk=u_u.pk ";
+        sql += "  LEFT JOIN user_table m_u ON log_star_table.manager_pk=m_u.pk ";
+        sql += ` WHERE log_star_table.user_pk=${decode?.pk} AND log_star_table.type=4 AND log_star_table.price < 0 ORDER BY pk DESC`;
         let result = await dbQueryList(sql);
         result = result?.result;
         if (page) {
@@ -3282,7 +3358,7 @@ const getExchangeHistory = async(req, res) =>{
         } else {
             return response(req, res, 100, "success", result)
         }
-    }catch (err) {
+    } catch (err) {
         console.log(err)
         return response(req, res, -200, "서버 에러 발생", [])
     }
@@ -3364,9 +3440,17 @@ const updateSetting = (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
         } else {
-            const { withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, withdraw_days, pk } = req.body;
-            let sql = 'UPDATE setting_table SET withdraw_commission_percent=?, withdraw_start_time=?, withdraw_end_time=?, withdraw_0=?, withdraw_5=?, withdraw_10=?, withdraw_15=?, withdraw_20=?, withdraw_25=?, withdraw_note=?, withdraw_days=?  WHERE pk=?';
-            values = [withdraw_commission_percent, withdraw_start_time, withdraw_end_time, withdraw_0, withdraw_5, withdraw_10, withdraw_15, withdraw_20, withdraw_25, withdraw_note, withdraw_days, pk];
+            let body = { ...req.body };
+            delete body['table'];
+            delete body['reason_correction'];
+            delete body['manager_note'];
+            let keys = Object.keys(body);
+            let values = [];
+            for (var i = 0; i < keys.length; i++) {
+                values.push(body[keys[i]]);
+            }
+            let sql = `UPDATE setting_table SET ${keys.join("=?,")}=? WHERE pk=?`;
+            values.push(req.body.pk);
             db.query(sql, values, (err, result) => {
                 if (err) {
                     console.log(err)
@@ -3511,5 +3595,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory
+    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 };
