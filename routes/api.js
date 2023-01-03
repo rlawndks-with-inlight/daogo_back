@@ -290,55 +290,48 @@ const onSignUp = async (req, res) => {
 }
 const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
     try {
-        let user_list = userList();
+        let user_list = await userList();
+        
         let user_obj = {};
+        let users = await dbQueryList("SELECT * FROM user_table WHERE user_level=0");
+        users = users?.result;
+        for(var i = 0;i<users.length;i++){
+            user_obj[users[i]?.id] = users[i];
+        }
         for (var i = 0; i < user_list.length; i++) {
             user_list[i][0] = user_list[i][0].toLowerCase();
             user_list[i][0] = user_list[i][0].replaceAll(' ', '');
+            user_list[i][1] = user_list[i][1].toLowerCase();
+            user_list[i][1] = user_list[i][1].replaceAll(' ', '');
+            user_list[i][2] = user_list[i][2].toLowerCase();
+            user_list[i][2] = user_list[i][2].replaceAll(' ', '');
+            user_list[i][2] = parseInt(user_list[i][2])
             user_list[i][3] = user_list[i][3].toLowerCase();
             user_list[i][3] = user_list[i][3].replaceAll(' ', '');
+            user_list[i][3] = parseInt(user_list[i][3])
+            user_list[i][4] = 1;
+            user_list[i][5] = 5;
+            if(user_obj[user_list[i][0]]){
 
-            user_list[i].splice(5, 3);
-            user_list[i].splice(11, 1);
-            if (i == 0) {
-                user_list[i][11] = 1;
-                user_list[i][3] = 'admin';
-
-            } else {
-                user_list[i][11] = -1;
-            }
-            user_list[i][4] = user_list[i][4] + ' 00:00:00'
-            user_list[i][5] = await makeHash(user_list[i][5].toString());
-            user_list[i][5] = user_list[i][5]?.data;
-            user_list[i][6] = await makeHash(user_list[i][6].toString());
-            user_list[i][6] = user_list[i][6]?.data;
-
-            user_obj[user_list[i][0]] = user_list[i];
-        }
-        let idx = 10;
-        while (idx--) {
-            for (var i = 1; i < user_list.length; i++) {
-                if (user_obj[user_list[i][3]]) {
-                    if (user_obj[user_list[i][3]][11] != -1) {
-                        user_list[i][11] = user_obj[user_list[i][3]][11] + 1;
-                    }
-                } else {
-                    console.log(i)
-                    console.log(user_list[i][3])
-                    return;
-                }
+            }else{
+                console.log(user_list[i][0]);
+                return;
             }
         }
-        let user_minus_depth_count = 0;
-        for (var i = 1; i < user_list.length; i++) {
-            if (user_list[i][11] == -1) {
-                user_minus_depth_count++;
-            }
-        }
-        //console.log(user_minus_depth_count)
-        //console.log(user_list)
         await db.beginTransaction();
-        // let result = await insertQuery(`INSERT INTO user_table (id, name, phone, parent_id, date, pw, payment_pw, account_name, bank_name, account_number, identification_number, depth  ) VALUES ?`,[user_list]);
+        console.log(user_list[671])
+         for(var i = 0;i<user_list.length;i++){
+            console.log(user_list[i]);
+
+             let result1 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,1,user_list[i][2],"{}"]);
+             let star_pk1 = result1?.result?.insertId;
+             let result2 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,1,user_list[i][3],"{}",star_pk1]);
+            
+             let result3 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,0,user_list[i][2]*(-1),"{}"]);
+             
+             let star_pk2 = result3?.result?.insertId;
+             let result4 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,0,user_list[i][3]*(-1),"{}",star_pk2]);
+         }
         await await db.commit();
     } catch (err) {
         await db.rollback();
@@ -1783,16 +1776,20 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
                 }
                 let parent_star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE star_pk=${star_log?.pk}`);
                 parent_star_log = parent_star_log?.result[0];
-                let parent_randombox_log = await dbQueryList(`SELECT * FROM log_randombox_table WHERE star_pk=${parent_star_log?.pk}`);
-                parent_randombox_log = parent_randombox_log?.result[0];
-                parent_log_list.push({
-                    table: 'randombox',
-                    price: parent_randombox_log?.price * (-1),
-                    user_pk: parent_randombox_log?.user_pk,
-                    type: parent_randombox_log?.type,
-                    manager_pk: decode?.pk,
-                    explain_obj: JSON.stringify({ user_pk: star_log?.user_pk, user_id: sell_user?.id })
-                })
+                if(parent_star_log?.pk>0){
+                    let parent_randombox_log = await dbQueryList(`SELECT * FROM log_randombox_table WHERE star_pk=${parent_star_log?.pk??0}`);
+                    parent_randombox_log = parent_randombox_log?.result[0];
+                    parent_log_list.push({
+                        table: 'randombox',
+                        price: parent_randombox_log?.price * (-1),
+                        user_pk: parent_randombox_log?.user_pk,
+                        type: parent_randombox_log?.type,
+                        manager_pk: decode?.pk,
+                        explain_obj: JSON.stringify({ user_pk: star_log?.user_pk, user_id: sell_user?.id })
+                    })
+                    await insertUserMoneyLog(parent_log_list);
+                }
+                
                 for (var i = 0; i < randombox_log.length; i++) {
                     if (randombox_log[i]?.type == 13) {
                         purchase_log_list.push({
@@ -1806,7 +1803,6 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
                     }
                 }
                 await insertUserMoneyLog(purchase_log_list);
-                await insertUserMoneyLog(parent_log_list);
 
                 explain_obj['return_reason'] = return_reason;//반송사유
 
@@ -2637,9 +2633,9 @@ const getHomeContent = async (req, res) => {
             { table: "star", sql: `SELECT SUM(price) AS star FROM log_star_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${decode.pk}`, type: 'obj' },
-            { table: "generation_star", sql: `SELECT SUM(price) AS generation_star FROM log_star_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) `, type: 'obj' },//선물받은것
+            { table: "generation_star", sql: `SELECT SUM(price) AS generation_star FROM log_star_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) OR (type=5 AND status=1) `, type: 'obj' },//선물받은것
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
-            { table: "generation_point", sql: `SELECT SUM(price) AS generation_point FROM log_point_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) `, type: 'obj' },//선물받은것, 
+            { table: "generation_point", sql: `SELECT SUM(price) AS generation_point FROM log_point_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) OR (type=5 AND status=1)`, type: 'obj' },//선물받은것, 
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
             { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
