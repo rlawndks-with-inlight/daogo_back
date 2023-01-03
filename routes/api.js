@@ -2633,9 +2633,9 @@ const getHomeContent = async (req, res) => {
             { table: "star", sql: `SELECT SUM(price) AS star FROM log_star_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "esgw", sql: `SELECT SUM(price) AS esgw FROM log_esgw_table WHERE user_pk=${decode.pk}`, type: 'obj' },
             { table: "point", sql: `SELECT SUM(price) AS point FROM log_point_table WHERE user_pk=${decode.pk}`, type: 'obj' },
-            { table: "generation_star", sql: `SELECT SUM(price) AS generation_star FROM log_star_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) OR (type=5 AND status=1) `, type: 'obj' },//선물받은것
+            { table: "generation_star", sql: `SELECT SUM(price) AS generation_star FROM log_star_table WHERE user_pk=${decode.pk} AND (type IN (7, 10, 14, 15) OR (type=5 AND status=1)) `, type: 'obj' },//선물받은것
             { table: "purchase_package", sql: ` SELECT * FROM log_randombox_table WHERE type=10 AND user_pk=${decode?.pk} `, type: 'list' },//선물받은것
-            { table: "generation_point", sql: `SELECT SUM(price) AS generation_point FROM log_point_table WHERE user_pk=${decode.pk} AND type IN (7, 10, 14, 15) OR (type=5 AND status=1)`, type: 'obj' },//선물받은것, 
+            { table: "generation_point", sql: `SELECT SUM(price) AS generation_point FROM log_point_table WHERE user_pk=${decode.pk} AND (type IN (7, 10, 14, 15) OR (type=5 AND status=1))`, type: 'obj' },//선물받은것, 
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
             { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
