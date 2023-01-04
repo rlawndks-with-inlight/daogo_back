@@ -1380,7 +1380,7 @@ const onWeekSettle = async (req, res) => {//주정산
         sql += `  LEFT JOIN user_table m_u ON log_randombox_table.manager_pk=m_u.pk  WHERE log_randombox_table.type=10 AND log_randombox_table.status=0`;
         let settle_list = await dbQueryList(sql);
         settle_list = settle_list?.result;//이번주 매출 리스트
-        let user_list = await dbQueryList("SELECT pk, parent_pk, depth, prider FROM user_table");//유저리스트
+        let user_list = await dbQueryList("SELECT pk, parent_pk, depth, prider, id FROM user_table");//유저리스트
         user_list = user_list?.result;
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
