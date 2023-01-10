@@ -987,11 +987,10 @@ const onGift = async (req, res) => {//선물
         if ((send_star < 0 && send_star) || (send_point < 0 && send_point) || (send_esgw < 0 && send_esgw)) {
             return response(req, res, -100, "0 이상의 숫자를 입력해주세요.", []);
         }
-        let send_user_log_list = [];
+        let send_user_log_list = [];//주는사람
         let get_user_log_list = [];
         let gift_commission = await dbQueryList(`SELECT * FROM setting_table ORDER BY pk DESC LIMIT 1`);
         gift_commission = gift_commission?.result[0];
-        console.log(gift_commission);
         send_user_log_list.push({ table: 'star', price: ((send_star ?? 0) + (send_star ?? 0) * (gift_commission?.gift_star_commission_percent ?? 0) / 100) * (-1), user_pk: decode?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: receiver_user?.pk, user_id: receiver_user?.id, user_name: receiver_user?.name, commission: gift_commission?.gift_star_commission_percent }) })
         get_user_log_list.push({ table: 'star', price: (send_star ?? 0), user_pk: receiver_user?.pk, type: 3, explain_obj: JSON.stringify({ user_pk: decode?.pk, user_id: decode?.id, user_name: decode?.name }) })
         if (send_point && send_point > 0) {
@@ -2612,7 +2611,8 @@ const getGenealogy = (req, res) => {
             }
         })
     } catch (err) {
-
+        console.log(err)
+        return response(req, res, -200, "서버 에러 발생", [])
     }
 }
 const getHomeContent = async (req, res) => {
@@ -3057,15 +3057,17 @@ const getItems = (req, res) => {
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
         }
         if (table == 'outlet_order') {
-            pageSql = "SELECT COUNT(*) from ";
-            pageSql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
+            pageSql = "SELECT COUNT(*) from log_star_table ";
             sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, outlet_table.name AS item_name, outlet_table.sell_star AS item_price, outlet_table.sell_user_id, outlet_table.sell_user_name, outlet_table.sell_user_phone, outlet_table.sell_revenue_percent, log_point_table.price AS point_price  from ";
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
             sql += " LEFT JOIN log_point_table ON log_star_table.pk=log_point_table.star_pk ";
-            whereStr += `AND log_star_table.type=0 `;
+            if(status){
+                whereStr = ` WHERE log_star_table.status=${status} `;
+            }
+            whereStr += ` AND log_star_table.type=0 `;
             if (decode?.user_level < 40) {
-                whereStr += `AND user_pk=${decode?.pk} AND log_star_table.price < 0 `;
+                whereStr += `AND log_star_table.user_pk=${decode?.pk} AND log_star_table.price < 0 `;
             } else {
                 whereStr += `AND log_star_table.price < 0 `;
             }
