@@ -3058,6 +3058,9 @@ const getItems = (req, res) => {
         }
         if (table == 'outlet_order') {
             pageSql = "SELECT COUNT(*) from log_star_table ";
+            pageSql += " LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
+            pageSql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
+            pageSql += " LEFT JOIN log_point_table ON log_star_table.pk=log_point_table.star_pk ";
             sql = "SELECT log_star_table.*, user_table.id AS user_id, user_table.name AS user_name, outlet_table.name AS item_name, outlet_table.sell_star AS item_price, outlet_table.sell_user_id, outlet_table.sell_user_name, outlet_table.sell_user_phone, outlet_table.sell_revenue_percent, log_point_table.price AS point_price  from ";
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
