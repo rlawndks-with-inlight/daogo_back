@@ -1508,7 +1508,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
-        let { request, name, phone, zip_code, address, address_detail, refer, payment_pw, item_pk, use_point, item_count } = req.body;
+        let { request, name, phone, zip_code, address, address_detail, refer, payment_pw, item_pk, use_point, item_count, option } = req.body;
         let user = await dbQueryList(`SELECT * FROM user_table WHERE pk=${decode?.pk}`);
         user = user?.result[0];
         let insert_payment_pw = await makeHash(payment_pw);
@@ -1519,6 +1519,12 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
 
         let item = await dbQueryList(`SELECT * FROM outlet_table WHERE pk=${item_pk}`);
         item = item?.result[0];
+        item['option_obj'] = JSON.parse(item['option_obj']);
+        item['option'] = item['option_obj'].find(e=>(e?.name==option?.name && e?.price==option?.price))
+        console.log(item['option'])
+        if(item['option']){
+            item['sell_star'] = item['sell_star'] + item['option']?.price;
+        }
         let user_money_ = await getUserMoneyReturn(decode?.pk);
         let purchase_list = [];
         let log_list = [];
@@ -1543,7 +1549,8 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address: address,
                     address_detail: address_detail,
                     refer: refer,
-                    count: item_count
+                    count: item_count,
+                    option: item?.option??{}
                 })
             })
         } else {
@@ -1562,6 +1569,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 refer: refer,
                 point: 0,
                 count: item_count,
+                option: item?.option??{}
             })
         })
         if (item?.randombox_point > 0) {//랜덤박스 포인트 지급 받을 시 랜덤박스 지급 받음
@@ -1576,6 +1584,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address_detail: address_detail,
                     refer: refer,
                     count: item_count,
+                    option: item?.option??{}
                 })
             })
         }
@@ -2186,6 +2195,8 @@ const getMyPageContent = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
+        const {bag} = req.body;
+        console.log(bag)
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -2193,6 +2204,7 @@ const getMyPageContent = async (req, res) => {
             //  {table:"star",sql:""},
             // {table:"point",sql:""},
             { table: "user", sql: `SELECT * FROM user_table WHERE pk=${decode?.pk}`, type: 'obj' },
+            { table: "bag", sql: `SELECT * FROM outlet_table WHERE ${bag.length>0?`pk IN (${bag.join()})`:`1=2`}`, type: 'list' },
             { table: "marketing", sql: `SELECT price, explain_obj FROM log_randombox_table WHERE user_pk=${decode?.pk} AND type=10`, type: 'list' },
             { table: "withdraw_won", sql: `SELECT SUM(price) AS withdraw_won FROM log_star_table WHERE user_pk=${decode?.pk} AND type=4 AND status=2 `, type: 'obj' },
             { table: "purchase_star", sql: `SELECT SUM(price) AS purchase_star FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },

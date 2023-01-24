@@ -83,6 +83,7 @@ router.post('/getsubscriptiondeposithistory', getSubscriptionDepositHistory);
 router.get('/item', getItem);
 router.get('/gethomecontent', getHomeContent);
 router.get('/getmypagecontent', getMyPageContent);
+router.post('/getmypagecontent', getMyPageContent);
 router.post('/updatesetting', updateSetting);
 router.post('/addsetting', upload.single('master'), addSetting);
 router.post('/updatestatus', updateStatus);
