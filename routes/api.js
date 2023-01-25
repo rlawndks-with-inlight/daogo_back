@@ -314,14 +314,11 @@ const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
             if(user_obj[user_list[i][0]]){
 
             }else{
-                console.log(user_list[i][0]);
                 return;
             }
         }
         await db.beginTransaction();
-        console.log(user_list[671])
          for(var i = 0;i<user_list.length;i++){
-            console.log(user_list[i]);
 
              let result1 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,1,user_list[i][2],"{}"]);
              let star_pk1 = result1?.result?.insertId;
@@ -344,7 +341,6 @@ const insertUsetList = async () => {//데이터에 넣은유저 parent_pk 설정
     try {
         let user_list = await dbQueryList("SELECT * FROM user_table WHERE user_level=0 AND depth >= 1");
         user_list = user_list?.result;
-        console.log(user_list)
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i].id] = user_list[i];
@@ -353,7 +349,6 @@ const insertUsetList = async () => {//데이터에 넣은유저 parent_pk 설정
 
         for (var i = 0; i < user_list.length; i++) {
             if (user_obj[user_list[i].parent_id]) {
-                console.log(user_obj[user_list[i].parent_id])
                 let result = await insertQuery("UPDATE user_table SET parent_pk=? WHERE pk=?", [user_obj[user_list[i].parent_id].pk, user_list[i].pk]);
             }
 
@@ -387,11 +382,9 @@ const addUSerMarketing = async () => {
                         [0, user_obj[excel_list[i][0]]?.pk, 10, "", JSON.stringify({ tier: get_user_price_by_tier[excel_list[i][1]] }), 74, 1]
                     )
                 } else {
-                    console.log(excel_list[i][1])
                     return;
                 }
             } else {
-                console.log(excel_list[i][0])
                 return;
             }
         }
@@ -452,7 +445,6 @@ const getAddressByText = async (req, res) => {
 const onLoginById = async (req, res) => {
     try {
         let { id, pw, type } = req.body;
-        console.log(1)
         let sql = `SELECT * FROM user_table WHERE id=?`;
         if (type == 'manager') {
             sql += ` AND user_level>=30 `
@@ -467,7 +459,6 @@ const onLoginById = async (req, res) => {
                         // bcrypt.hash(pw, salt, async (err, hash) => {
                         let hash = decoded.toString('base64');
                         if (hash == result1[0].pw) {
-                            console.log(result1)
                             try {
                                 const token = jwt.sign({
                                     pk: result1[0].pk,
@@ -1521,7 +1512,6 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         item = item?.result[0];
         item['option_obj'] = JSON.parse(item['option_obj']);
         item['option'] = item['option_obj'].find(e=>(e?.name==option?.name && e?.price==option?.price))
-        console.log(item['option'])
         if(item['option']){
             item['sell_star'] = item['sell_star'] + item['option']?.price;
         }
@@ -1894,11 +1884,9 @@ const insertUserMoneyByExcel = async (req, res) => {
         }
         user_list_sql = user_list_sql.substring(0, user_list_sql.length - 1);
         user_list_sql += ")";
-        console.log(user_list_sql)
         let user_list = await dbQueryList(user_list_sql);
 
         user_list = user_list?.result;
-        console.log(user_list)
 
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
@@ -2564,7 +2552,6 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적,
 }
 const getGenealogy = (req, res) => {
     try {
-        console.log(1)
         const decode = checkLevel(req.cookies.token, 0);
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", [])
@@ -3105,7 +3092,6 @@ const getItems = (req, res) => {
         if (table == 'log_money') {
             pageSql = 'SELECT COUNT(*) FROM v_log_money ';
             sql = 'SELECT *, SUM(s_t_price) OVER(ORDER BY pk) AS s_t_sum, SUM(p_t_price) OVER(ORDER BY pk) AS p_t_sum, SUM(r_t_price) OVER(ORDER BY pk) AS r_t_sum, SUM(e_t_price) OVER(ORDER BY pk) AS e_t_sum FROM v_log_money '
-            console.log(decode.pk)
             if (decode.user_level < 40) {
                 whereStr += ` AND user_pk=${decode.pk} `;
             }
