@@ -291,11 +291,11 @@ const onSignUp = async (req, res) => {
 const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
     try {
         let user_list = await userList();
-        
+
         let user_obj = {};
         let users = await dbQueryList("SELECT * FROM user_table WHERE user_level=0");
         users = users?.result;
-        for(var i = 0;i<users.length;i++){
+        for (var i = 0; i < users.length; i++) {
             user_obj[users[i]?.id] = users[i];
         }
         for (var i = 0; i < user_list.length; i++) {
@@ -311,24 +311,24 @@ const excelUserInsert = async () => {//엑셀에서 유저데이터 넣기
             user_list[i][3] = parseInt(user_list[i][3])
             user_list[i][4] = 1;
             user_list[i][5] = 5;
-            if(user_obj[user_list[i][0]]){
+            if (user_obj[user_list[i][0]]) {
 
-            }else{
+            } else {
                 return;
             }
         }
         await db.beginTransaction();
-         for(var i = 0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
 
-             let result1 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,1,user_list[i][2],"{}"]);
-             let star_pk1 = result1?.result?.insertId;
-             let result2 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,1,user_list[i][3],"{}",star_pk1]);
-            
-             let result3 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,0,user_list[i][2]*(-1),"{}"]);
-             
-             let star_pk2 = result3?.result?.insertId;
-             let result4 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)",[user_obj[user_list[i][0]]?.pk,5,0,user_list[i][3]*(-1),"{}",star_pk2]);
-         }
+            let result1 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)", [user_obj[user_list[i][0]]?.pk, 5, 1, user_list[i][2], "{}"]);
+            let star_pk1 = result1?.result?.insertId;
+            let result2 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)", [user_obj[user_list[i][0]]?.pk, 5, 1, user_list[i][3], "{}", star_pk1]);
+
+            let result3 = await insertQuery("INSERT INTO log_star_table (user_pk, type, status, price, explain_obj) VALUES (?, ?, ?, ?, ?)", [user_obj[user_list[i][0]]?.pk, 5, 0, user_list[i][2] * (-1), "{}"]);
+
+            let star_pk2 = result3?.result?.insertId;
+            let result4 = await insertQuery("INSERT INTO log_point_table (user_pk, type, status, price, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?, ?)", [user_obj[user_list[i][0]]?.pk, 5, 0, user_list[i][3] * (-1), "{}", star_pk2]);
+        }
         await await db.commit();
     } catch (err) {
         await db.rollback();
@@ -1012,6 +1012,179 @@ const onGift = async (req, res) => {//선물
 
     }
 }
+const onAuctionParticipate = async (req, res) => {//경매참여
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { game_pk, check_list } = req.body;
+        let game = await dbQueryList(`SELECT * FROM auction_table WHERE pk=${game_pk}`);
+        game = game?.result[0];
+        if (game?.status != 1) {
+            return response(req, res, -100, "종료된 경매 입니다.", []);
+        }
+        await db.beginTransaction();
+        let log_list = [];
+        log_list.push({ table: 'star', price: (game?.participate_star ?? 0) * (check_list.length ?? 0) * (-1), user_pk: decode?.pk, item_pk: game_pk, type: 16, explain_obj: JSON.stringify({ check_list: check_list }) })
+        log_list.push({ table: 'point', price: (game?.participate_point ?? 0) * (check_list.length ?? 0) * (-1), user_pk: decode?.pk, item_pk: game_pk, type: 16, explain_obj: JSON.stringify({ check_list: check_list }) })
+        await insertUserMoneyLog(log_list);
+        let today_user_participate_sql = `SELECT SUM(log_star_table.price) AS use_star, SUM(log_point_table.price) AS use_point FROM log_star_table `
+        today_user_participate_sql += ` LEFT JOIN log_point_table ON log_star_table.pk=log_point_table.star_pk `;
+        today_user_participate_sql += ` WHERE log_star_table.user_pk=${decode?.pk} AND log_star_table.type=16 AND log_star_table.item_pk=${game_pk} AND log_star_table.date LIKE '%${returnMoment().substring(0, 10)}%' `;
+        let today_user_participate = await dbQueryList(today_user_participate_sql);
+        today_user_participate = today_user_participate?.result[0];
+        let use_star = (today_user_participate?.use_star ?? 0) * (-1);
+        let use_point = (today_user_participate?.use_point ?? 0) * (-1);
+        if (use_star > game?.max_use_star) {
+            await db.rollback();
+            return response(req, res, -100, "하루 최대 이용가능한 스타를 초과 하였습니다.", []);
+        }
+        if (use_point > game?.max_use_point) {
+            await db.rollback();
+            return response(req, res, -100, "하루 최대 이용가능한 포인트를 초과 하였습니다.", []);
+        }
+        await db.commit();
+        return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err);
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const getParticipateUsers = async (req, res) => {
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { page, game_pk } = req.body;
+        let page_cut = 10;
+        let history = await dbQueryList(`SELECT *, user_table.id, user_table.name, user_table.phone, user_table.tier FROM v_log_money LEFT JOIN user_table ON v_log_money.pk=user_table.pk WHERE v_log_money.item_pk=${game_pk} AND v_log_money.type=16 ORDER BY v_log_money.pk DESC`);
+        history = history?.result;
+        let result = [];
+        await history.reduce(function (res, value) {
+            if (!res[value.user_pk]) {
+                res[value.user_pk] = { user_pk: value.user_pk,id: value.user_id,name: value.user_name, s_t_price: 0, p_t_price:0 };
+                result.push(res[value.user_pk])
+            }
+            res[value.user_pk].s_t_price -= value.s_t_price;
+            res[value.user_pk].p_t_price -= value.p_t_price;
+            return res;
+        }, {});
+         let maxPage = makeMaxPage(result.length, page_cut);
+         if (page) {
+             result = result.slice((page - 1) * page_cut, page * page_cut);
+        }
+        return response(req, res, 100, "success", { data: result, maxPage: maxPage });
+    } catch (err) {
+        console.log(err);
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const awardUser = async (user_pk_key_list, winner_price, user_obj, game_pk) => {
+    for (var i = 0; i < user_pk_key_list.length; i++) {
+        if (user_obj[user_pk_key_list[i]]?.check_list.includes(winner_price)) {
+            let result = await insertQuery(`UPDATE auction_table SET winner_pk=?, winner_price=?, status=0 WHERE pk=?`, [user_pk_key_list[i], winner_price, game_pk]);
+            break;
+        }
+    }
+}
+const onAuctionDeadline = async (req, res) => {//경매 마감
+    try {
+        const decode = checkLevel(req.cookies.token, 40);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { game_pk } = req.body;
+        let game = await dbQueryList(`SELECT * FROM auction_table WHERE pk=${game_pk}`);
+        game = game?.result[0];
+        let board_list = [];
+        let board_obj = {};
+        let user_obj = {};
+        for (var i = game?.min_price; i <= game?.max_price; i += game?.price_unit) {
+            board_list.push(i);
+            board_obj[i] = 0;
+        }
+        let all_participate_user = await dbQueryList(`SELECT *, log_point_table.price AS point_price FROM log_star_table LEFT JOIN log_point_table ON log_star_table.pk=log_point_table.star_pk WHERE log_star_table.type=16 AND log_star_table.item_pk=${game_pk}`);
+        all_participate_user = all_participate_user?.result;
+        for (var i = 0; i < all_participate_user.length; i++) {
+            let check_list = JSON.parse(all_participate_user[i]?.explain_obj);
+            check_list = check_list?.check_list ?? [];
+            if (!user_obj[all_participate_user[i]?.user_pk]) {
+                user_obj[all_participate_user[i]?.user_pk] = {
+                    check_list: [],
+                    use_star: 0,
+                    use_point: 0
+                };
+            }
+            user_obj[all_participate_user[i]?.user_pk].check_list = [...user_obj[all_participate_user[i]?.user_pk]?.check_list, ...check_list];
+            user_obj[all_participate_user[i]?.user_pk].use_star += (all_participate_user[i]?.price ?? 0) * (-1);
+            user_obj[all_participate_user[i]?.user_pk].use_point += (all_participate_user[i]?.point_price ?? 0) * (-1);
+            for (var j = 0; j < check_list.length; j++) {
+                board_obj[check_list[j]]++;
+            }
+        }
+        await db.beginTransaction();
+        let is_exist_winner = false;
+        let user_pk_key_list = Object.keys(user_obj);
+        for (var i = board_list.length - 1; i >= 0; i--) {
+            if (board_obj[board_list[i]] == 1) {
+                is_exist_winner = true;
+                let result = await awardUser(user_pk_key_list, board_list[i], user_obj, game_pk);
+                break;
+            }
+        }
+        for (var i = 0; i < user_pk_key_list.length; i++) {
+            let result = await insertUserMoneyLog([{
+                table: 'esgw',
+                price: ((user_obj[user_pk_key_list[i]]?.use_star ?? 0) + (user_obj[user_pk_key_list[i]]?.use_point ?? 0)),
+                user_pk: user_pk_key_list[i],
+                item_pk: game_pk,
+                type: 16,
+                explain_obj: "{}"
+            }]);
+        }
+        await db.commit();
+        return response(req, res, 100, "success", []);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
+const getMyAuctionCheckList = async (req, res) => {//내가 체크한 리스트
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { game_pk } = req.body;
+        let game = await dbQueryList(`SELECT * FROM auction_table WHERE pk=${game_pk}`);
+        game = game?.result[0];
+        let get_participate = await dbQueryList(`SELECT * FROM log_star_table WHERE user_pk=${decode?.pk} AND type=16 AND item_pk=${game_pk}`);
+        get_participate = get_participate?.result;
+        let list = [];
+        for (var i = 0; i < get_participate.length; i++) {
+            let obj = JSON.parse(get_participate[i]?.explain_obj ?? "{check_list:[]}");
+            list = [...list, ...obj?.check_list ?? []];
+        }
+        return response(req, res, 100, "success", list);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const registerRandomBox = async (req, res) => {//랜덤박스 등록
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -1091,6 +1264,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
 
     }
 }
+
 const requestWithdraw = async (req, res) => {//출금신청
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -1511,8 +1685,8 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
         let item = await dbQueryList(`SELECT * FROM outlet_table WHERE pk=${item_pk}`);
         item = item?.result[0];
         item['option_obj'] = JSON.parse(item['option_obj']);
-        item['option'] = item['option_obj'].find(e=>(e?.name==option?.name && e?.price==option?.price))
-        if(item['option']){
+        item['option'] = item['option_obj'].find(e => (e?.name == option?.name && e?.price == option?.price))
+        if (item['option']) {
             item['sell_star'] = item['sell_star'] + item['option']?.price;
         }
         let user_money_ = await getUserMoneyReturn(decode?.pk);
@@ -1540,7 +1714,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address_detail: address_detail,
                     refer: refer,
                     count: item_count,
-                    option: item?.option??{}
+                    option: item?.option ?? {}
                 })
             })
         } else {
@@ -1559,7 +1733,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                 refer: refer,
                 point: 0,
                 count: item_count,
-                option: item?.option??{}
+                option: item?.option ?? {}
             })
         })
         if (item?.randombox_point > 0) {//랜덤박스 포인트 지급 받을 시 랜덤박스 지급 받음
@@ -1574,7 +1748,7 @@ const onOutletOrder = async (req, res) => {//아울렛 구매
                     address_detail: address_detail,
                     refer: refer,
                     count: item_count,
-                    option: item?.option??{}
+                    option: item?.option ?? {}
                 })
             })
         }
@@ -1682,29 +1856,29 @@ const onChangeExchangeBatch = async (req, res) => {
         exchange_list = exchange_list?.result;
         let must_number = 0;
         let must_number_str = "";
-        if(status==-1 || status==1){
+        if (status == -1 || status == 1) {
             must_number = 0;
             must_number_str = "접수대기 상태가 아닌 곳에 체크가 되어 있습니다.";
-        }else if(status==2){
+        } else if (status == 2) {
             must_number = 1;
             must_number_str = "접수완료 상태가 아닌 곳에 체크가 되어 있습니다.";
 
-        }else{
+        } else {
             alert("잘못된 값입니다.");
             return;
         }
-        for(var i = 0;i<exchange_list.length;i++){
-            if(exchange_list[i]?.status!=must_number){
+        for (var i = 0; i < exchange_list.length; i++) {
+            if (exchange_list[i]?.status != must_number) {
                 return response(req, res, -150, must_number_str, []);
             }
         }
         await db.beginTransaction();
         let result = await insertQuery(`UPDATE log_star_table SET status=${status}, manager_pk=${decode?.pk} WHERE pk IN(${join_list.join()})`);
-        if(status==-1){
+        if (status == -1) {
             let log_list = [];
-            for(var i = 0;i<exchange_list.length;i++){
+            for (var i = 0; i < exchange_list.length; i++) {
                 log_list.push([
-                    exchange_list[i]?.price*(-1),
+                    exchange_list[i]?.price * (-1),
                     exchange_list[i]?.user_pk,
                     4,
                     decode?.pk,
@@ -1713,7 +1887,7 @@ const onChangeExchangeBatch = async (req, res) => {
                     ""
                 ])
             }
-            let result2 = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, manager_pk, explain_obj, status, note) VALUES ?`,[log_list]);
+            let result2 = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, manager_pk, explain_obj, status, note) VALUES ?`, [log_list]);
         }
         await db.commit();
         return response(req, res, 100, "success", []);
@@ -1774,8 +1948,8 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
                 }
                 let parent_star_log = await dbQueryList(`SELECT * FROM log_star_table WHERE star_pk=${star_log?.pk}`);
                 parent_star_log = parent_star_log?.result[0];
-                if(parent_star_log?.pk>0){
-                    let parent_randombox_log = await dbQueryList(`SELECT * FROM log_randombox_table WHERE star_pk=${parent_star_log?.pk??0}`);
+                if (parent_star_log?.pk > 0) {
+                    let parent_randombox_log = await dbQueryList(`SELECT * FROM log_randombox_table WHERE star_pk=${parent_star_log?.pk ?? 0}`);
                     parent_randombox_log = parent_randombox_log?.result[0];
                     parent_log_list.push({
                         table: 'randombox',
@@ -1787,7 +1961,7 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
                     })
                     await insertUserMoneyLog(parent_log_list);
                 }
-                
+
                 for (var i = 0; i < randombox_log.length; i++) {
                     if (randombox_log[i]?.type == 13) {
                         purchase_log_list.push({
@@ -2183,7 +2357,7 @@ const getMyPageContent = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
-        const {bag} = req.body;
+        const { bag } = req.body;
         console.log(bag)
         let result_list = [];
         let obj = {};
@@ -2192,7 +2366,7 @@ const getMyPageContent = async (req, res) => {
             //  {table:"star",sql:""},
             // {table:"point",sql:""},
             { table: "user", sql: `SELECT * FROM user_table WHERE pk=${decode?.pk}`, type: 'obj' },
-            { table: "bag", sql: `SELECT * FROM outlet_table WHERE ${bag.length>0?`pk IN (${bag.join()})`:`1=2`}`, type: 'list' },
+            { table: "bag", sql: `SELECT * FROM outlet_table WHERE ${bag.length > 0 ? `pk IN (${bag.join()})` : `1=2`}`, type: 'list' },
             { table: "marketing", sql: `SELECT price, explain_obj FROM log_randombox_table WHERE user_pk=${decode?.pk} AND type=10`, type: 'list' },
             { table: "withdraw_won", sql: `SELECT SUM(price) AS withdraw_won FROM log_star_table WHERE user_pk=${decode?.pk} AND type=4 AND status=2 `, type: 'obj' },
             { table: "purchase_star", sql: `SELECT SUM(price) AS purchase_star FROM log_star_table WHERE user_pk=${decode?.pk} AND (type=0 OR type=1)`, type: 'obj' },
@@ -3055,6 +3229,10 @@ const getItems = (req, res) => {
             sql += " outlet_table LEFT JOIN outlet_category_table ON outlet_table.category_pk=outlet_category_table.pk ";
             sql += "  LEFT JOIN outlet_brand_table ON outlet_table.brand_pk=outlet_brand_table.pk ";
         }
+        if (table == 'auction') {
+            sql = "SELECT auction_table.*, user_table.id AS winner_id, user_table.name AS winner_name  FROM auction_table ";
+            sql += " LEFT JOIN user_table ON auction_table.winner_pk=user_table.pk ";
+        }
         if (table == 'outlet_order') {
             pageSql = "SELECT COUNT(*) from log_star_table ";
             pageSql += " LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
@@ -3064,7 +3242,7 @@ const getItems = (req, res) => {
             sql += " log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk ";
             sql += " LEFT JOIN outlet_table ON log_star_table.item_pk=outlet_table.pk ";
             sql += " LEFT JOIN log_point_table ON log_star_table.pk=log_point_table.star_pk ";
-            if(status){
+            if (status) {
                 whereStr = ` WHERE log_star_table.status=${status} `;
             }
             whereStr += ` AND log_star_table.type=0 `;
@@ -3595,5 +3773,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
+    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 };

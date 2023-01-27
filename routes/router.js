@@ -7,7 +7,7 @@ const {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
+    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 } = require('./api')
 
 router.post('/addalarm', addAlarm);
@@ -49,6 +49,10 @@ router.post('/updateusersubscriptiondepositbymanager', updateUserSubscriptionDep
 router.post('/lotterydailypoint', lotteryDailyPoint);
 router.post('/registerrandomBox', registerRandomBox);
 router.post('/ongift', onGift);
+router.post('/getparticipateusers', getParticipateUsers);
+router.post('/onauctionparticipate', onAuctionParticipate);
+router.post('/onauctiondeadline', onAuctionDeadline);
+router.post('/getmyauctionchecklist', getMyAuctionCheckList);
 router.post('/requestWithdraw', requestWithdraw);
 router.post('/buyesgwpoint', buyESGWPoint);
 router.post('/subscriptiondeposit', subscriptionDeposit);
