@@ -940,6 +940,11 @@ const lotteryDailyPoint = async (req, res) => {//유저가 데일리포인트 �
         ];
         await db.beginTransaction();
         await insertUserMoneyLog(log_list);
+        let is_user_lottery_today_double = await dbQueryList(`SELECT * FROM log_randombox_table WHERE DATE_FORMAT(date,'%Y-%m-%d') = '${returnMoment().substring(0, 10)}' AND user_pk=${decode?.pk} AND type=7`)
+        if (is_user_lottery_today_double?.result?.length > 1) {
+            await db.rollback();
+            return response(req, res, -100, "오늘 이미 데일리 추첨을 완료하였습니다.", []);
+        }
         await updateUserTier(decode?.pk);
         await db.commit();
         return response(req, res, 100, "success", { percent: daily_percent?.money[idx] });
