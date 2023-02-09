@@ -380,7 +380,7 @@ function lowLevelResponse(req, res) {
 }
 const returnMoment = (d) => {
     var today = new Date();
-    if(d){
+    if (d) {
         today = d;
     }
     var year = today.getFullYear();
@@ -394,8 +394,8 @@ const returnMoment = (d) => {
     let moment = dateString + ' ' + timeString;
     return moment;
 }
-const max_child_depth = () => {//깊이
-    return 500;
+const max_child_depth = (num = 300) => {//깊이
+    return num;
 }
 const getEventRandomboxPercentByTier = (num) => {
     return num / 10;
@@ -425,8 +425,8 @@ const getKewordListBySchema = (schema_) => {
         list = ['user_table.id', 'user_table.name'];
     } else if (schema == 'exchange') {
         list = ['u_u.id', 'u_u.name', 'u_u.zip_code', 'u_u.bank_name', 'u_u.account_number', 'u_u.account_name'];
-    }else if (schema == 'outlet_order') {
-        list = ['user_table.id','user_table.name'];
+    } else if (schema == 'outlet_order') {
+        list = ['user_table.id', 'user_table.name'];
     } else {
         link = [];
     }
@@ -496,7 +496,7 @@ function getMonday(d) {
         diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
     return new Date(d.setDate(diff));
 }
-const adminPk = () =>{
+const adminPk = () => {
     return 74;
 }
 const makeHash = (pw_) => {

@@ -177,8 +177,6 @@ const settingUser = async () => {
             insert_esgw_list.push([i + 1, (user_esgw_obj[user_money[i].user_pk] - user_money[i].e_t_sum), user_money[i].user_pk, 5, '{}', '']);
             insert_esgw_reset_list.push([(user_money[i].e_t_sum - user_esgw_obj[user_money[i].user_pk]), user_money[i].user_pk, 5, '{}', '']);
             if ((user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum) > 0.5 || (user_randombox_obj[user_money[i].user_pk] - user_money[i].r_t_sum) < -0.5) {
-                console.log(user_randombox_obj[user_money[i].user_pk])
-                console.log(user_money[i].r_t_sum)
             }
         }
 
@@ -426,7 +424,6 @@ const getAddressByText = async (req, res) => {
                     road_address: coord.data.addresses[i].roadAddress,
                     address: coord.data.addresses[i].jibunAddress
                 }
-                console.log(coord.data.addresses[i].addressElements[8])
                 for (var j = 0; j < coord.data.addresses[i].addressElements.length; j++) {
                     if (coord.data.addresses[i].addressElements[j]?.types[0] == 'POSTAL_CODE') {
                         result[i].zip_code = coord.data.addresses[i].addressElements[j]?.longName;
@@ -2626,6 +2623,7 @@ const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기�
             pk_idx_obj[list[i].pk] = i;
         }
         let depth_list = [];
+        let depth_user_list = [];
         for (var i = 0; i < max_child_depth(); i++) {
             depth_list[i] = {};
         }
@@ -2644,11 +2642,16 @@ const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기�
         for (var i = 0; i < list.length; i++) {
             if (depth_list[list[i]?.depth][list[i]?.parent_pk] && list[i]?.depth) {
                 depth_list[list[i]?.depth][list[i]?.parent_pk].push(list[i]);
+                depth_user_list.push(list[i]);
                 depth_list[list[i]?.depth + 1][`${list[i]?.pk}`] = [];
             }
         }
         depth_list[auth?.depth][`${auth?.parent_pk}`] = [{ ...auth }];
-        return depth_list;
+        depth_user_list.push(auth);
+        return {
+            tree:depth_list,
+            list:depth_user_list,
+        };
     } else {
         return [];
     }
@@ -2660,6 +2663,7 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
         let user_list = await dbQueryList('SELECT * FROM user_table');
         user_list = user_list?.result;
         let user_tree = await getGenealogyReturn({ pk: adminPk() }, user_list);
+        user_tree = user_tree?.tree;
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = user_list[i];
@@ -2688,9 +2692,7 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
         return [];
     }
 }
-const getGenealogyScoreByGenealogyList = async (list_, decode_, marketing_list_, user_list_) => {//대실적, 소실적 구하기
-    let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
-    let marketing_list = [...marketing_list_];
+const getGenealogyScoreByGenealogyList = async (list_, decode_, marketing_list_, user_list_, max_depth_) => {//대실적, 소실적 구하기
     let list = [...list_];
     //console.log(JSON.stringify(list))
     let decode = { ...decode_ };
@@ -2699,22 +2701,14 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_, marketing_list_,
     for (var i = 0; i < list[decode?.depth + 1][decode?.pk].length; i++) {
         let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i], user_list, list[decode?.depth + 1][decode?.pk][i]);
         let score = 0;
-        for (var j = 0; j < max_child_depth(); j++) {
-            for (var k = 0; k < Object.keys(score_list[j]).length; k++) {
-                //console.log(score_list[j][Object.keys(score_list[j])[k]]);
-                let marketing_user_list = await marketing_list.map((item) => {
-                    if (score_list[j][Object.keys(score_list[j])[k]].map((itm) => { return itm?.pk }).includes(item?.user_pk)) {
-                        //console.log(JSON?.parse(item?.explain_obj)?.tier??0)
-                        score += get_score_by_tier[JSON?.parse(item?.explain_obj)?.tier ?? 0]
-                    } else {
-
-                    }
-                })
-                //console.log(score_list[j][Object.keys(score_list[j])[k]].map((item)=>{return item?.pk}));
-                //score += score_list[j][Object.keys(score_list[j])[k]].reduce((a, b) => a + (get_score_by_tier[b['tier']] || 0), 0);
-            }
+        score_list = score_list?.list;
+        score_list = score_list.map(item=>{
+            return item?.score
+        });
+        for(var j=0;j<score_list.length;j++){
+            score += score_list[j];
         }
-        await genealogy_score_list.push(score);
+        genealogy_score_list.push(score);
     }
     let great = 0;
     let loss = 0;
@@ -2821,12 +2815,26 @@ const getHomeContent = async (req, res) => {
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
             { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
-        let user_list = await dbQueryList(`SELECT * FROM user_table`);
+        let user_list = await dbQueryList(`SELECT *, 0 AS score FROM user_table`);
         user_list = user_list?.result;
-        let genealogy_list = await getGenealogyReturn(decode, user_list);
+        let user_obj = {};
+        for(var i = 0;i<user_list.length;i++){
+            user_obj[user_list[i]?.pk] = i;
+        }
         let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
         marketing_list = marketing_list?.result;
-        let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode, marketing_list, user_list);
+        let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
+        for(var i = 0;i<marketing_list.length;i++){
+            let score = get_score_by_tier[JSON?.parse(marketing_list[i]?.explain_obj)?.tier ?? 0];
+            user_list[user_obj[marketing_list[i]?.user_pk]]['score'] += score;
+        }
+        let genealogy_list = await getGenealogyReturn(decode, user_list);
+        genealogy_list = genealogy_list?.tree;
+        
+        
+        let max_depth = await dbQueryList(`SELECT MAX(depth) AS max_depth FROM user_table`)
+        max_depth = max_depth?.result[0]['max_depth'];
+        let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode, marketing_list, user_list, max_depth);
         obj['genealogy_score'] = genealogy_score;
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
@@ -3166,27 +3174,70 @@ const returnListBySchema = async (list_, schema_) => {
     let list = [...list_];
     let schema = schema_ ?? "";
     if (schema == 'user') {
+        let log_table_list = ['star','point','esgw','randombox'];
+        let log_result_list = [];
+        for (var i = 0; i < log_table_list.length; i++) {
+            log_result_list.push(queryPromise(log_table_list[i], `SELECT price, user_pk FROM log_${log_table_list[i]}_table `, 'list'));
+        }
+        for (var i = 0; i < log_result_list.length; i++) {
+            await log_result_list[i];
+        }
+        let log_result = (await when(log_result_list));
+        let log_obj = {};
+        for (var i = 0; i < (await log_result).length; i++) {
+            log_obj[(await log_result[i])?.table] = (await log_result[i])?.data ?? [];
+        }
+        let list_obj = {};
+        for (var i = 0; i < list.length; i++) {
+            list_obj[list[i]?.pk] = i;
+        }
+        for (var i = 0; i < log_table_list.length; i++) {
+            log_obj[log_table_list[i]].map((item)=>{
+                if(list[list_obj[item?.user_pk]]){
+                    list[list_obj[item?.user_pk]][log_table_list[i]] += item?.price;
+                }
+            })
+        }
         let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
         marketing_list = marketing_list?.result;
-        let user_list = await dbQueryList(`SELECT * FROM user_table`);
+        let user_list = await dbQueryList(`SELECT *, 0 AS score FROM user_table`);
         user_list = user_list?.result;
-        let result_list = [];
-        for (var i = 0; i < list.length; i++) {
-            result_list.push(getUserListPartner(i, list[i], user_list,  marketing_list));
+        let user_obj = {};
+        for (var i = 0; i < user_list.length; i++) {
+            user_obj[user_list[i]?.pk] = i;
         }
+        let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
+        for(var i = 0;i<marketing_list.length;i++){
+            let score = get_score_by_tier[JSON?.parse(marketing_list[i]?.explain_obj)?.tier ?? 0];
+            user_list[user_obj[marketing_list[i]?.user_pk]]['score'] += score;
+        }
+        let result_list = [];
+        console.log(returnMoment());
+        let max_depth = await dbQueryList(`SELECT MAX(depth) AS max_depth FROM user_table`);
+        max_depth = max_depth?.result[0]['max_depth'];
+        for (var i = 0; i < list.length; i++) {
+            if(list[i].user_level==0){
+                result_list.push(getUserListPartner(i, list[i], user_list,  marketing_list, max_depth));
+            }
+        }
+        console.log(returnMoment());
         for (var i = 0; i < result_list.length; i++) {
             await result_list[i];
         }
+        console.log(returnMoment());
         let result = (await when(result_list));
         for (var i = 0; i < (await result).length; i++) {
             list[(await result[i])?.idx]['partner'] = (await result[i])?.partner;
         }
+        console.log(returnMoment());
+
     }
     return list;
 }
-const getUserListPartner = async (idx, user, user_list,  marketing_list) =>{
+const getUserListPartner = async (idx, user, user_list,  marketing_list, max_depth) =>{
     let genealogy_list = await getGenealogyReturn(user, user_list, user);
-    let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, user, marketing_list, user_list);
+    genealogy_list = genealogy_list?.tree;
+    let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, user, marketing_list, user_list, max_depth);
     return {
         partner: `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`,
         idx:idx
@@ -3203,6 +3254,7 @@ const getItems = (req, res) => {
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
         let whereStr = " WHERE 1=1 ";
+        console.log(1)
         if (level) {
             if (level == 0) {
                 whereStr += ` AND user_level=${level} `;
@@ -3246,7 +3298,7 @@ const getItems = (req, res) => {
             sql = "SELECT * "
             let money_categories = ['star', 'point', 'randombox', 'esgw'];
             for (var i = 0; i < money_categories.length; i++) {
-                sql += `, (SELECT SUM(price) FROM log_${money_categories[i]}_table WHERE user_pk=user_table.pk) AS ${money_categories[i]} `
+                sql += `, 0 AS ${money_categories[i]} `
             }
             sql += ' FROM user_table '
         }
