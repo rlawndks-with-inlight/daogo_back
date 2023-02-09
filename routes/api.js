@@ -445,6 +445,7 @@ const getAddressByText = async (req, res) => {
 const onLoginById = async (req, res) => {
     try {
         let { id, pw, type } = req.body;
+        console.log(req.body);
         let sql = `SELECT * FROM user_table WHERE id=?`;
         if (type == 'manager') {
             sql += ` AND user_level>=30 `

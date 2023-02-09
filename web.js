@@ -47,7 +47,7 @@ const HTTP_PORT = 8001;
 const HTTPS_PORT = 8443;
 
 if (is_test) {
-        http.createServer(app).listen(HTTP_PORT,'0.0.0.0', function () {
+        http.createServer(app).listen(HTTP_PORT, '0.0.0.0', function () {
                 console.log("Server on " + HTTP_PORT);
                 //scheduleDaily();
         });
@@ -58,7 +58,7 @@ if (is_test) {
                 key: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/privkey.pem"),
                 cert: fs.readFileSync("/etc/letsencrypt/live/daogo.co.kr/cert.pem")
         };
-        https.createServer(options, app).listen(HTTPS_PORT,'0.0.0.0', function () {
+        https.createServer(options, app).listen(HTTPS_PORT, '0.0.0.0', function () {
                 console.log("Server on " + HTTPS_PORT);
                 scheduleDaily();
         });
@@ -109,8 +109,8 @@ const scheduleDaily = () => {
                                         }
                                         let randombox_point = (parseFloat(daily_percent?.money[idx]) * (user_list[i]?.sum_randombox ?? 0) / 100);
                                         if (randombox_point != 0) {
-                                                let result = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, explain_obj) VALUES (?, ?, ?, ?)`, [0, user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) })])
-                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent:parseFloat(daily_percent?.money[idx]) }), result?.result?.insertId])
+                                                let result = await insertQuery(`INSERT INTO log_star_table (price, user_pk, type, explain_obj) VALUES (?, ?, ?, ?)`, [0, user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent: parseFloat(daily_percent?.money[idx]) })])
+                                                await insertQuery(`INSERT INTO log_randombox_table (price, user_pk, type, explain_obj, star_pk) VALUES (?, ?, ?, ?, ?)`, [randombox_point * (-1), user_list[i]?.pk, 6, JSON.stringify({ not_attendance: true, percent: parseFloat(daily_percent?.money[idx]) }), result?.result?.insertId])
                                                 await updateUserTier(user_list[i]?.pk);
                                                 user_count++;
                                         } else {
