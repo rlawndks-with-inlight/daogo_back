@@ -445,7 +445,6 @@ const getAddressByText = async (req, res) => {
 const onLoginById = async (req, res) => {
     try {
         let { id, pw, type } = req.body;
-        console.log(req.body);
         let sql = `SELECT * FROM user_table WHERE id=?`;
         if (type == 'manager') {
             sql += ` AND user_level>=30 `
@@ -2618,12 +2617,10 @@ const updateMaster = (req, res) => {
 
 
 
-const getGenealogyReturn = async (decode_,) => {//유저기준 트리 가져오기
+const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기준 트리 가져오기
     let decode = decode_;
     if (decode?.pk) {
-        let result = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table`);
-        result = result?.result;
-        let list = [...result];
+        let list = [...user_list_];
         let pk_idx_obj = {};
         for (var i = 0; i < list.length; i++) {
             pk_idx_obj[list[i].pk] = i;
@@ -2632,8 +2629,14 @@ const getGenealogyReturn = async (decode_,) => {//유저기준 트리 가져오�
         for (var i = 0; i < max_child_depth(); i++) {
             depth_list[i] = {};
         }
-        let auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
-        auth = auth?.result[0]
+        let auth = {};
+        if(!auth_){
+            auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
+            auth = auth?.result[0]
+        }else{
+            auth = {...auth_};
+        }
+        
         depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
         list = list.sort(function (a, b) {
             return a.depth - b.depth;
@@ -2654,9 +2657,9 @@ const getGenealogyReturn = async (decode_,) => {//유저기준 트리 가져오�
 const getParentUserList = async (decode_) => {//자신위의 유저들
     let decode = decode_;
     if (decode?.pk && decode?.user_level == 0) {
-        let user_tree = await getGenealogyReturn({ pk: adminPk() });
         let user_list = await dbQueryList('SELECT * FROM user_table');
         user_list = user_list?.result;
+        let user_tree = await getGenealogyReturn({ pk: adminPk() }, user_list);
         let user_obj = {};
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = user_list[i];
@@ -2685,16 +2688,16 @@ const getParentUserList = async (decode_) => {//자신위의 유저들
         return [];
     }
 }
-const getGenealogyScoreByGenealogyList = async (list_, decode_) => {//대실적, 소실적 구하기
+const getGenealogyScoreByGenealogyList = async (list_, decode_, marketing_list_, user_list_) => {//대실적, 소실적 구하기
     let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
-    let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
-    marketing_list = marketing_list?.result;
+    let marketing_list = [...marketing_list_];
     let list = [...list_];
     //console.log(JSON.stringify(list))
     let decode = { ...decode_ };
     let genealogy_score_list = [];
+    let user_list = [...user_list_];
     for (var i = 0; i < list[decode?.depth + 1][decode?.pk].length; i++) {
-        let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i]);
+        let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i], user_list, list[decode?.depth + 1][decode?.pk][i]);
         let score = 0;
         for (var j = 0; j < max_child_depth(); j++) {
             for (var k = 0; k < Object.keys(score_list[j]).length; k++) {
@@ -2818,8 +2821,12 @@ const getHomeContent = async (req, res) => {
             { table: "main_banner", sql: `SELECT * FROM main_banner_table WHERE status=1 ORDER BY sort DESC`, type: 'list' },//선물받은것, 
             { table: "sell_outlet", sql: `SELECT COUNT(*) AS sell_outlet FROM log_star_table WHERE user_pk=${decode?.pk} AND type=0 AND SUBSTR(date, 1, 7)='${returnMoment().substring(0, 7)}'`, type: 'obj' },//아울렛 구매이력, 
         ];
-        let genealogy_list = await getGenealogyReturn(decode);
-        let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode);
+        let user_list = await dbQueryList(`SELECT * FROM user_table`);
+        user_list = user_list?.result;
+        let genealogy_list = await getGenealogyReturn(decode, user_list);
+        let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
+        marketing_list = marketing_list?.result;
+        let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode, marketing_list, user_list);
         obj['genealogy_score'] = genealogy_score;
         for (var i = 0; i < sql_list.length; i++) {
             result_list.push(queryPromise(sql_list[i].table, sql_list[i].sql, sql_list[i].type));
@@ -3159,13 +3166,31 @@ const returnListBySchema = async (list_, schema_) => {
     let list = [...list_];
     let schema = schema_ ?? "";
     if (schema == 'user') {
+        let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
+        marketing_list = marketing_list?.result;
+        let user_list = await dbQueryList(`SELECT * FROM user_table`);
+        user_list = user_list?.result;
+        let result_list = [];
         for (var i = 0; i < list.length; i++) {
-            let genealogy_list = await getGenealogyReturn(list[i]);
-            let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, list[i]);
-            list[i]['partner'] = `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`;
+            result_list.push(getUserListPartner(i, list[i], user_list,  marketing_list));
+        }
+        for (var i = 0; i < result_list.length; i++) {
+            await result_list[i];
+        }
+        let result = (await when(result_list));
+        for (var i = 0; i < (await result).length; i++) {
+            list[(await result[i])?.idx]['partner'] = (await result[i])?.partner;
         }
     }
     return list;
+}
+const getUserListPartner = async (idx, user, user_list,  marketing_list) =>{
+    let genealogy_list = await getGenealogyReturn(user, user_list, user);
+    let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, user, marketing_list, user_list);
+    return {
+        partner: `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`,
+        idx:idx
+    }
 }
 const getItems = (req, res) => {
     try {
