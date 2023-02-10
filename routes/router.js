@@ -7,7 +7,7 @@ const {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
+    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList,getAllAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 } = require('./api')
 
 router.post('/addalarm', addAlarm);
@@ -34,8 +34,8 @@ router.get('/users', getUsers);
 //router.post('/addoneevent', upload.single('content'), addOneEvent);
 router.post('/editmyinfo', upload.fields([{ name: 'profile' }]), editMyInfo);
 router.get('/auth', getUserToken);
-router.post('/additem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), addItem);
-router.post('/updateitem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }]), updateItem);
+router.post('/additem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }, { name: 'auction' }]), addItem);
+router.post('/updateitem', upload.fields([{ name: 'banner' }, { name: 'coupon' }, { name: 'outlet' }, { name: 'auction' }]), updateItem);
 router.post('/deleteitem', deleteItem);
 router.post('/getalldatabytables', getAllDataByTables);
 router.post('/getgenealogy', getGenealogy);
@@ -53,6 +53,7 @@ router.post('/getparticipateusers', getParticipateUsers);
 router.post('/onauctionparticipate', onAuctionParticipate);
 router.post('/onauctiondeadline', onAuctionDeadline);
 router.post('/getmyauctionchecklist', getMyAuctionCheckList);
+router.post('/getallauctionchecklist', getAllAuctionCheckList);
 router.post('/requestWithdraw', requestWithdraw);
 router.post('/buyesgwpoint', buyESGWPoint);
 router.post('/subscriptiondeposit', subscriptionDeposit);

@@ -1186,6 +1186,34 @@ const getMyAuctionCheckList = async (req, res) => {//내가 체크한 리스트
 
     }
 }
+const getAllAuctionCheckList = async (req, res) => {//내가 체크한 리스트
+    try {
+        const decode = checkLevel(req.cookies.token, 0);
+        if (!decode) {
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let { game_pk } = req.body;
+        let game = await dbQueryList(`SELECT * FROM auction_table WHERE pk=${game_pk}`);
+        game = game?.result[0];
+        if(game?.status==1 && decode?.user_level < 40){
+            return response(req, res, -150, "권한이 없습니다", []);
+        }
+        let get_participate = await dbQueryList(`SELECT * FROM log_star_table WHERE type=16 AND item_pk=${game_pk}`);
+        get_participate = get_participate?.result;
+        let list = [];
+        for (var i = 0; i < get_participate.length; i++) {
+            let obj = JSON.parse(get_participate[i]?.explain_obj ?? "{check_list:[]}");
+            list = [...list, ...obj?.check_list ?? []];
+        }
+        return response(req, res, 100, "success", list);
+    } catch (err) {
+        console.log(err)
+        await db.rollback();
+        return response(req, res, -200, "서버 에러 발생", []);
+    } finally {
+
+    }
+}
 const registerRandomBox = async (req, res) => {//랜덤박스 등록
     try {
         const decode = checkLevel(req.cookies.token, 0);
@@ -3848,5 +3876,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
+    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList,getAllAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 };
