@@ -389,7 +389,6 @@ const addUSerMarketing = async () => {
         db.beginTransaction();
         console.log(list)
         //let result = await insertQuery("INSERT INTO log_randombox_table (price, user_pk, type, note, explain_obj, manager_pk, status) VALUES ? ",[list])
-        console.log(result);
         db.commit();
     } catch (err) {
         db.rollback();
@@ -1926,10 +1925,10 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         await db.beginTransaction();
         let user_list = [star_log?.user_pk];
 
-        if (status == -1 || status == 1 || status == -2) {
+        if (status == -1 ||status == 3 || status == 1 || status == -2) {
             sql += ",manager_pk=? ";
             values.push(decode?.pk);
-            if (status == 1) {
+            if (status == 1 || status == 3) {
                 explain_obj['invoice'] = invoice;//송장
             } else {
                 let purchase_log_list = [{ table: 'star', price: star_log?.price * (-1), user_pk: star_log?.user_pk, type: 0, manager_pk: decode?.pk, explain_obj: JSON.stringify({ point: explain_obj?.point }) }]
@@ -2360,7 +2359,6 @@ const getMyPageContent = async (req, res) => {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
         const { bag } = req.body;
-        console.log(bag)
         let result_list = [];
         let obj = {};
         let sql_list = [
@@ -3212,7 +3210,6 @@ const returnListBySchema = async (list_, schema_) => {
             user_list[user_obj[marketing_list[i]?.user_pk]]['score'] += score;
         }
         let result_list = [];
-        console.log(returnMoment());
         let max_depth = await dbQueryList(`SELECT MAX(depth) AS max_depth FROM user_table`);
         max_depth = max_depth?.result[0]['max_depth'];
         for (var i = 0; i < list.length; i++) {
@@ -3220,17 +3217,13 @@ const returnListBySchema = async (list_, schema_) => {
                 result_list.push(getUserListPartner(i, list[i], user_list,  marketing_list, max_depth));
             }
         }
-        console.log(returnMoment());
         for (var i = 0; i < result_list.length; i++) {
             await result_list[i];
         }
-        console.log(returnMoment());
         let result = (await when(result_list));
         for (var i = 0; i < (await result).length; i++) {
             list[(await result[i])?.idx]['partner'] = (await result[i])?.partner;
         }
-        console.log(returnMoment());
-
     }
     return list;
 }
@@ -3254,7 +3247,6 @@ const getItems = (req, res) => {
         let sql = `SELECT * FROM ${table}_table `;
         let pageSql = `SELECT COUNT(*) FROM ${table}_table `;
         let whereStr = " WHERE 1=1 ";
-        console.log(1)
         if (level) {
             if (level == 0) {
                 whereStr += ` AND user_level=${level} `;
@@ -3483,7 +3475,7 @@ const getSubscriptionDepositHistory = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
-        let { page_cut, page } = req.body;
+        let { page_cut, page, keyword } = req.body;
         if (!page_cut) {
             page_cut = page_cut;
         }
@@ -3496,9 +3488,9 @@ const getSubscriptionDepositHistory = async (req, res) => {
             // {table:"randombox",sql:""},
             //  {table:"star",sql:""},
             // {table:"point",sql:""},
-            { table: "star", sql: `SELECT log_star_table.*, '스타' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk WHERE log_star_table.type=8 `, type: 'list' },
+            { table: "star", sql: `SELECT log_star_table.*, '스타' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_star_table LEFT JOIN user_table ON log_star_table.user_pk=user_table.pk WHERE log_star_table.type=8  `, type: 'list' },
             { table: "point", sql: `SELECT log_point_table.*, '포인트' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_point_table LEFT JOIN user_table ON log_point_table.user_pk=user_table.pk WHERE log_point_table.type=8 `, type: 'list' },
-            { table: "esgw", sql: `SELECT log_esgw_table.*, 'ESGWP' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_esgw_table LEFT JOIN user_table ON log_esgw_table.user_pk=user_table.pk WHERE log_esgw_table.type=8`, type: 'list' },
+            { table: "esgw", sql: `SELECT log_esgw_table.*, 'ESGWP' AS category, user_table.id AS user_id, user_table.name AS user_name FROM log_esgw_table LEFT JOIN user_table ON log_esgw_table.user_pk=user_table.pk WHERE log_esgw_table.type=8 `, type: 'list' },
         ];
 
         for (var i = 0; i < sql_list.length; i++) {
