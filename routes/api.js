@@ -1141,16 +1141,16 @@ const onAuctionDeadline = async (req, res) => {//경매 마감
                 break;
             }
         }
-        for (var i = 0; i < user_pk_key_list.length; i++) {
-            let result = await insertUserMoneyLog([{
-                table: 'esgw',
-                price: ((user_obj[user_pk_key_list[i]]?.use_star ?? 0) + (user_obj[user_pk_key_list[i]]?.use_point ?? 0)),
-                user_pk: user_pk_key_list[i],
-                item_pk: game_pk,
-                type: 16,
-                explain_obj: "{}"
-            }]);
-        }
+        // for (var i = 0; i < user_pk_key_list.length; i++) {
+        //     let result = await insertUserMoneyLog([{
+        //         table: 'esgw',
+        //         price: ((user_obj[user_pk_key_list[i]]?.use_star ?? 0) + (user_obj[user_pk_key_list[i]]?.use_point ?? 0)),
+        //         user_pk: user_pk_key_list[i],
+        //         item_pk: game_pk,
+        //         type: 16,
+        //         explain_obj: "{}"
+        //     }]);
+        // }
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
