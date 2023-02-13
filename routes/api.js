@@ -1141,7 +1141,7 @@ const onAuctionDeadline = async (req, res) => {//경매 마감
                 break;
             }
         }
-        // for (var i = 0; i < user_pk_key_list.length; i++) {
+        // for (var i = 0; i < user_pk_key_list.length; i++) { // 유찰시 esgw 지급
         //     let result = await insertUserMoneyLog([{
         //         table: 'esgw',
         //         price: ((user_obj[user_pk_key_list[i]]?.use_star ?? 0) + (user_obj[user_pk_key_list[i]]?.use_point ?? 0)),
