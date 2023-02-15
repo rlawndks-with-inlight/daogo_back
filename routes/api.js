@@ -3232,6 +3232,7 @@ const returnListBySchema = async (list_, schema_) => {
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = i;
         }
+        
         let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
         for(var i = 0;i<marketing_list.length;i++){
             let score = get_score_by_tier[JSON?.parse(marketing_list[i]?.explain_obj)?.tier ?? 0];
@@ -3251,6 +3252,7 @@ const returnListBySchema = async (list_, schema_) => {
         let result = (await when(result_list));
         for (var i = 0; i < (await result).length; i++) {
             list[(await result[i])?.idx]['partner'] = (await result[i])?.partner;
+            list[(await result[i])?.idx]['score'] = user_list[user_obj[list[(await result[i])?.idx]['pk']]]?.score;
         }
     }
     return list;
