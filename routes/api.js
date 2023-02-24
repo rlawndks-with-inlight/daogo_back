@@ -1068,16 +1068,16 @@ const getParticipateUsers = async (req, res) => {
         let result = [];
         await history.reduce(function (res, value) {
             if (!res[value.user_pk]) {
-                res[value.user_pk] = { user_pk: value.user_pk,id: value.user_id,name: value.user_name, s_t_price: 0, p_t_price:0 };
+                res[value.user_pk] = { user_pk: value.user_pk, id: value.user_id, name: value.user_name, s_t_price: 0, p_t_price: 0 };
                 result.push(res[value.user_pk])
             }
             res[value.user_pk].s_t_price -= value.s_t_price;
             res[value.user_pk].p_t_price -= value.p_t_price;
             return res;
         }, {});
-         let maxPage = makeMaxPage(result.length, page_cut);
-         if (page) {
-             result = result.slice((page - 1) * page_cut, page * page_cut);
+        let maxPage = makeMaxPage(result.length, page_cut);
+        if (page) {
+            result = result.slice((page - 1) * page_cut, page * page_cut);
         }
         return response(req, res, 100, "success", { data: result, maxPage: maxPage });
     } catch (err) {
@@ -1195,7 +1195,7 @@ const getAllAuctionCheckList = async (req, res) => {//내가 체크한 리스트
         let { game_pk } = req.body;
         let game = await dbQueryList(`SELECT * FROM auction_table WHERE pk=${game_pk}`);
         game = game?.result[0];
-        if(game?.status==1 && decode?.user_level < 40){
+        if (game?.status == 1 && decode?.user_level < 40) {
             return response(req, res, -150, "권한이 없습니다", []);
         }
         let get_participate = await dbQueryList(`SELECT * FROM log_star_table WHERE type=16 AND item_pk=${game_pk}`);
@@ -1335,11 +1335,28 @@ const requestWithdraw = async (req, res) => {//출금신청
         if (insert_payment_pw?.data !== user?.payment_pw) {
             return response(req, res, -100, "결제 비밀번호가 틀렸습니다.", []);
         }
-
-
-        if (star > withdraw_setting[`withdraw_${user?.tier}`]) {
-            return response(req, res, -100, `최대 출금 신청 금액은 수수료 제외 ${commarNumber(withdraw_setting[`withdraw_${user?.tier}`])} 스타 입니다.`, []);
+        let user_money_1 = await getUserMoneyReturn(decode?.pk);
+        let withdraw_allow_randombox = [
+            { amount: 0 },
+            { amount: 9000 },
+            { amount: 30000 },
+            { amount: 90000 },
+            { amount: 150000 },
+            { amount: 300000 },
+            { amount: 900000 },
+            { amount: 1500000 },
+        ]
+        let user_possible_randombox = 0;
+        for (var i = 0; i < withdraw_allow_randombox.length; i++) {
+            if (user_money_1?.randombox >= withdraw_allow_randombox[i].amount) {
+                user_possible_randombox = withdraw_setting[`withdraw_${i * 5}`];
+            }
         }
+
+        if (star > user_possible_randombox) {
+            return response(req, res, -100, `최대 출금 신청 금액은 수수료 제외 ${commarNumber(user_possible_randombox)} 스타 입니다.`, []);
+        }
+
         withdraw_commission_percent = withdraw_setting?.withdraw_commission_percent;
         let log_list = [
             { table: 'star', price: (star + star * withdraw_commission_percent / 100) * (-1), user_pk: decode?.pk, type: 4 },
@@ -1953,7 +1970,7 @@ const onChangeOutletOrderStatus = async (req, res) => {//아울렛주문 관리
         await db.beginTransaction();
         let user_list = [star_log?.user_pk];
 
-        if (status == -1 ||status == 3 || status == 1 || status == -2) {
+        if (status == -1 || status == 3 || status == 1 || status == -2) {
             sql += ",manager_pk=? ";
             values.push(decode?.pk);
             if (status == 1 || status == 3) {
@@ -2640,7 +2657,7 @@ const updateMaster = (req, res) => {
 
 
 
-const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기준 트리 가져오기
+const getGenealogyReturn = async (decode_, user_list_, auth_) => {//유저기준 트리 가져오기
     let decode = decode_;
     if (decode?.pk) {
         let list = [...user_list_];
@@ -2654,13 +2671,13 @@ const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기�
             depth_list[i] = {};
         }
         let auth = {};
-        if(!auth_){
+        if (!auth_) {
             auth = await dbQueryList(`SELECT pk, id, name, tier, depth, parent_pk FROM user_table WHERE pk=${decode?.pk}`);
             auth = auth?.result[0]
-        }else{
-            auth = {...auth_};
+        } else {
+            auth = { ...auth_ };
         }
-        
+
         depth_list[auth?.depth + 1][`${auth?.pk}`] = [];
         list = list.sort(function (a, b) {
             return a.depth - b.depth;
@@ -2675,8 +2692,8 @@ const getGenealogyReturn = async (decode_, user_list_, auth_ ) => {//유저기�
         depth_list[auth?.depth][`${auth?.parent_pk}`] = [{ ...auth }];
         depth_user_list.push(auth);
         return {
-            tree:depth_list,
-            list:depth_user_list,
+            tree: depth_list,
+            list: depth_user_list,
         };
     } else {
         return [];
@@ -2728,10 +2745,10 @@ const getGenealogyScoreByGenealogyList = async (list_, decode_, marketing_list_,
         let score_list = await getGenealogyReturn(list[decode?.depth + 1][decode?.pk][i], user_list, list[decode?.depth + 1][decode?.pk][i]);
         let score = 0;
         score_list = score_list?.list;
-        score_list = score_list.map(item=>{
+        score_list = score_list.map(item => {
             return item?.score
         });
-        for(var j=0;j<score_list.length;j++){
+        for (var j = 0; j < score_list.length; j++) {
             score += score_list[j];
         }
         genealogy_score_list.push(score);
@@ -2844,20 +2861,20 @@ const getHomeContent = async (req, res) => {
         let user_list = await dbQueryList(`SELECT *, 0 AS score FROM user_table`);
         user_list = user_list?.result;
         let user_obj = {};
-        for(var i = 0;i<user_list.length;i++){
+        for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = i;
         }
         let marketing_list = await dbQueryList(`SELECT * FROM log_randombox_table WHERE type=10`);
         marketing_list = marketing_list?.result;
         let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
-        for(var i = 0;i<marketing_list.length;i++){
+        for (var i = 0; i < marketing_list.length; i++) {
             let score = get_score_by_tier[JSON?.parse(marketing_list[i]?.explain_obj)?.tier ?? 0];
             user_list[user_obj[marketing_list[i]?.user_pk]]['score'] += score;
         }
         let genealogy_list = await getGenealogyReturn(decode, user_list);
         genealogy_list = genealogy_list?.tree;
-        
-        
+
+
         let max_depth = await dbQueryList(`SELECT MAX(depth) AS max_depth FROM user_table`)
         max_depth = max_depth?.result[0]['max_depth'];
         let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, decode, marketing_list, user_list, max_depth);
@@ -3200,7 +3217,7 @@ const returnListBySchema = async (list_, schema_) => {
     let list = [...list_];
     let schema = schema_ ?? "";
     if (schema == 'user') {
-        let log_table_list = ['star','point','esgw','randombox'];
+        let log_table_list = ['star', 'point', 'esgw', 'randombox'];
         let log_result_list = [];
         for (var i = 0; i < log_table_list.length; i++) {
             log_result_list.push(queryPromise(log_table_list[i], `SELECT price, user_pk FROM log_${log_table_list[i]}_table `, 'list'));
@@ -3218,8 +3235,8 @@ const returnListBySchema = async (list_, schema_) => {
             list_obj[list[i]?.pk] = i;
         }
         for (var i = 0; i < log_table_list.length; i++) {
-            log_obj[log_table_list[i]].map((item)=>{
-                if(list[list_obj[item?.user_pk]]){
+            log_obj[log_table_list[i]].map((item) => {
+                if (list[list_obj[item?.user_pk]]) {
                     list[list_obj[item?.user_pk]][log_table_list[i]] += item?.price;
                 }
             })
@@ -3232,9 +3249,9 @@ const returnListBySchema = async (list_, schema_) => {
         for (var i = 0; i < user_list.length; i++) {
             user_obj[user_list[i]?.pk] = i;
         }
-        
+
         let get_score_by_tier = { 0: 0, 5: 36, 10: 120, 15: 360, 20: 600, 25: 1200 };
-        for(var i = 0;i<marketing_list.length;i++){
+        for (var i = 0; i < marketing_list.length; i++) {
             let score = get_score_by_tier[JSON?.parse(marketing_list[i]?.explain_obj)?.tier ?? 0];
             user_list[user_obj[marketing_list[i]?.user_pk]]['score'] += score;
         }
@@ -3242,8 +3259,8 @@ const returnListBySchema = async (list_, schema_) => {
         let max_depth = await dbQueryList(`SELECT MAX(depth) AS max_depth FROM user_table`);
         max_depth = max_depth?.result[0]['max_depth'];
         for (var i = 0; i < list.length; i++) {
-            if(list[i].user_level==0){
-                result_list.push(getUserListPartner(i, list[i], user_list,  marketing_list, max_depth));
+            if (list[i].user_level == 0) {
+                result_list.push(getUserListPartner(i, list[i], user_list, marketing_list, max_depth));
             }
         }
         for (var i = 0; i < result_list.length; i++) {
@@ -3257,13 +3274,13 @@ const returnListBySchema = async (list_, schema_) => {
     }
     return list;
 }
-const getUserListPartner = async (idx, user, user_list,  marketing_list, max_depth) =>{
+const getUserListPartner = async (idx, user, user_list, marketing_list, max_depth) => {
     let genealogy_list = await getGenealogyReturn(user, user_list, user);
     genealogy_list = genealogy_list?.tree;
     let genealogy_score = await getGenealogyScoreByGenealogyList(genealogy_list, user, marketing_list, user_list, max_depth);
     return {
         partner: `${commarNumber(genealogy_score?.loss)} / ${commarNumber(genealogy_score?.great)}`,
-        idx:idx
+        idx: idx
     }
 }
 const getItems = (req, res) => {
@@ -3878,5 +3895,5 @@ module.exports = {
     addMaster, onSignUp, addItem, addNoteImage, addSetting, addComment, addAlarm,//insert 
     updateUser, updateItem, updateMaster, updateSetting, updateStatus, onTheTopItem, changeItemSequence, changePassword, updateComment, updateAlarm, updateDailyPercent, updateUserMoneyByManager, lotteryDailyPoint, onChangeExchangeStatus, onChangeOutletOrderStatus, initializationIdCard, updateUserSubscriptionDepositByManager,//update
     deleteItem,
-    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList,getAllAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
+    requestWithdraw, onGift, onAuctionParticipate, getParticipateUsers, onAuctionDeadline, getMyAuctionCheckList, getAllAuctionCheckList, registerRandomBox, buyESGWPoint, subscriptionDeposit, onOutletOrder, addMarketing, addMonthSettle, getWeekSettleChild, onWeekSettle, insertUserMoneyByExcel, getExchangeHistory, onChangeExchangeBatch
 };
