@@ -2840,6 +2840,7 @@ const getHomeContent = async (req, res) => {
         if (!decode) {
             return response(req, res, -150, "권한이 없습니다.", []);
         }
+        console.log(req.headers);
         let result_list = [];
         let obj = {};
         let sql_list = [
