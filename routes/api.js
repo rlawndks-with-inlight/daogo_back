@@ -1329,7 +1329,7 @@ const requestWithdraw = async (req, res) => {//출금신청
         } else {
             return response(req, res, -100, `출금 시간이 아닙니다. \n출금가능시간: ${withdraw_setting?.withdraw_start_time} ~ ${withdraw_setting?.withdraw_end_time}`, []);
         }
-        let request_withdraw_history = await dbQueryList(`SELECT * FROM log_star_table WHERE type=4 AND user_pk=${decode} AND price < 0 `);
+        let request_withdraw_history = await dbQueryList(`SELECT * FROM log_star_table WHERE type=4 AND user_pk=${decode?.pk} AND price < 0 `);
         request_withdraw_history = request_withdraw_history?.result;
         if(request_withdraw_history.length > 0){
             return response(req, res, -100, "출금신청은 1일 1회만 가능합니다.", []);
