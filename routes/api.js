@@ -1045,6 +1045,12 @@ const onAuctionParticipate = async (req, res) => {//경매참여
             await db.rollback();
             return response(req, res, -100, "하루 최대 이용가능한 포인트를 초과 하였습니다.", []);
         }
+        let user_money = await getUserMoneyReturn(decode?.pk);
+        let negative_result = await checkUserPointNegative(user_money);
+        if (negative_result) {
+            await db.rollback();
+            return response(req, res, -200, "유저의 금액은 마이너스가 될 수 없습니다.", []);
+        }
         await db.commit();
         return response(req, res, 100, "success", []);
     } catch (err) {
@@ -1323,8 +1329,13 @@ const requestWithdraw = async (req, res) => {//출금신청
         } else {
             return response(req, res, -100, `출금 시간이 아닙니다. \n출금가능시간: ${withdraw_setting?.withdraw_start_time} ~ ${withdraw_setting?.withdraw_end_time}`, []);
         }
-        if (star < 500) {
-            return response(req, res, -100, "스타는 500 이상의 금액부터 등록 가능합니다.", []);
+        let request_withdraw_history = await dbQueryList(`SELECT * FROM log_star_table WHERE type=4 AND user_pk=${decode} AND price < 0 `);
+        request_withdraw_history = request_withdraw_history?.result;
+        if(request_withdraw_history.length > 0){
+            return response(req, res, -100, "출금신청은 1일 1회만 가능합니다.", []);
+        }
+        if (star < 100) {
+            return response(req, res, -100, "스타는 100 이상의 금액부터 등록 가능합니다.", []);
         }
         if (star % 100 != 0) {
             return response(req, res, -100, "스타는 100 단위 금액만 등록 가능합니다.", []);
