@@ -1242,7 +1242,7 @@ const registerRandomBox = async (req, res) => {//랜덤박스 등록
         }
         let log_list = [
             { table: 'star', price: star * (-1), user_pk: decode?.pk, type: 2, explain_obj: "{}" },
-            { table: 'randombox', price: star * 3, user_pk: decode?.pk, type: 2, explain_obj: "{}" }
+            { table: 'randombox', price: star * 2, user_pk: decode?.pk, type: 2, explain_obj: "{}" }
         ]
         let parent_user_list = await getParentUserList(decode)
         let parent_log_list = [];
