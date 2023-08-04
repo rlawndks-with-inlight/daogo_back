@@ -444,6 +444,8 @@ const onLoginById = async (req, res) => {
         let sql = `SELECT * FROM user_table WHERE id=?`;
         if (type == 'manager') {
             sql += ` AND user_level>=30 `
+        } else {
+            return response(req, res, -100, "fail", [])
         }
         db.query(sql, [id], async (err, result1) => {
             if (err) {
